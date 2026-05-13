@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/dingdns/dingdns/internal/api"
@@ -87,8 +90,10 @@ func main() {
 		}
 	}
 
-	// Ensure super admin exists
-	ensureSuperAdmin()
+	// Ensure super admin exists.
+	// Pass the configPath so we can find the installer's handoff file,
+	// and the admin email from config so we don't hardcode dingdns.com.
+	ensureSuperAdmin(*configPath, cfg.AdminEmail)
 
 	// Ensure at least one API key exists
 	ensureDefaultAPIKey()
@@ -173,63 +178,37 @@ func main() {
 	log.Println("DingDns stopped")
 }
 
-func ensureSuperAdmin() {
-	var count int64
-	core.DB.Model(&core.Admin{}).Where("role = ?", "super_admin").Count(&count)
-	if count > 0 {
-		return
+// initialAdminPasswordFile is the path the installer drops a one-time
+// password file at. We read it, use it, then delete it — so the secret
+// never lives on disk after the first successful boot.
+//
+// Resolution order for the initial admin password:
+//  1. DINGDNS_INITIAL_ADMIN_PASSWORD env var (handy for CI / re-installs)
+//  2. The handoff file at <configDir>/.initial-admin-password
+//     (defaults to /opt/dingdns/.initial-admin-password)
+//  3. A securely generated random password, logged once on startup
+//
+// In every case the password is logged to stdout/journal exactly once
+// when the admin is created. There is no hardcoded "admin123" anymore.
+func initialAdminPasswordPath(configPath string) string {
+	dir := filepath.Dir(configPath)
+	if dir == "" || dir == "." {
+		dir = "/opt/dingdns"
 	}
-
-	admin := core.Admin{
-		Username:    "admin",
-		Email:       "admin@dingdns.com",
-		Role:        "super_admin",
-		Permissions: "*",
-		IsActive:    true,
-	}
-	admin.SetPassword("admin123")
-
-	if err := core.DB.Create(&admin).Error; err != nil {
-		log.Printf("Failed to create super admin: %v", err)
-		return
-	}
-
-	log.Println("========================================")
-	log.Println("  Super Admin created:")
-	log.Println("  Username: admin")
-	log.Println("  Password: admin123")
-	log.Println("  CHANGE THIS PASSWORD IMMEDIATELY!")
-	log.Println("========================================")
+	return filepath.Join(dir, ".initial-admin-password")
 }
 
-func ensureDefaultAPIKey() {
-	var count int64
-	models.DB.Model(&models.APIKey{}).Count(&count)
-	if count > 0 {
-		return
+func loadInitialAdminPassword(configPath string) (password string, source string) {
+	if envPw := strings.TrimSpace(os.Getenv("DINGDNS_INITIAL_ADMIN_PASSWORD")); envPw != "" {
+		return envPw, "env"
 	}
 
-	key, err := models.GenerateAPIKey()
-	if err != nil {
-		log.Printf("Failed to generate default API key: %v", err)
-		return
+	pwFile := initialAdminPasswordPath(configPath)
+	if data, err := os.ReadFile(pwFile); err == nil {
+		pw := strings.TrimSpace(string(data))
+		if pw != "" {
+			return pw, "file:" + pwFile
+		}
 	}
 
-	apiKey := models.APIKey{
-		Name:           "Default Key",
-		Key:            key,
-		AllowedOrigins: "*",
-		IsActive:       true,
-	}
-
-	if err := models.DB.Create(&apiKey).Error; err != nil {
-		log.Printf("Failed to create default API key: %v", err)
-		return
-	}
-
-	log.Println("========================================")
-	log.Println("  Default API key created:")
-	log.Printf("  Key: %s", key)
-	log.Println("  Restrict origins in admin panel!")
-	log.Println("========================================")
-}
+	// Fall b
