@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DingDns API Documentation v2.0</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+
+  /* Cover */
+  .cover { text-align: center; padding: 80px 0 60px; border-bottom: 1px solid #2d3748; margin-bottom: 60px; }
+  .cover .logo { font-size: 48px; font-weight: 800; color: #60a5fa; letter-spacing: -1px; }
+  .cover .subtitle { font-size: 20px; color: #94a3b8; margin-top: 8px; }
+  .cover .version { display: inline-block; margin-top: 20px; background: #1e3a5f; color: #60a5fa; padding: 4px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; }
+  .cover .meta { margin-top: 32px; color: #64748b; font-size: 14px; }
+
+  /* TOC */
+  .toc { background: #161b27; border: 1px solid #2d3748; border-radius: 12px; padding: 28px; margin-bottom: 48px; }
+  .toc h2 { color: #60a5fa; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: #94a3b8; text-decoration: none; font-size: 14px; }
+  .toc a:hover { color: #60a5fa; }
+
+  /* Sections */
+  h1 { font-size: 28px; color: #f1f5f9; border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin: 48px 0 24px; }
+  h2 { font-size: 20px; color: #60a5fa; margin: 36px 0 16px; }
+  h3 { font-size: 16px; color: #93c5fd; margin: 28px 0 12px; }
+  p { color: #94a3b8; margin: 8px 0 16px; font-size: 15px; }
+
+  /* Endpoint cards */
+  .endpoint { background: #161b27; border: 1px solid #2d3748; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid #2d3748; }
+  .method { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 4px; min-width: 56px; text-align: center; }
+  .GET    { background: #14532d; color: #4ade80; }
+  .POST   { background: #1e3a5f; color: #60a5fa; }
+  .PUT    { background: #3b2005; color: #fb923c; }
+  .DELETE { background: #450a0a; color: #f87171; }
+  .path { font-family: 'Courier New', monospace; font-size: 14px; color: #f1f5f9; font-weight: 600; }
+  .auth-badge { margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .auth-none   { background: #1a2e1a; color: #4ade80; }
+  .auth-apikey { background: #2a1a3e; color: #c084fc; }
+  .auth-admin  { background: #1e3a5f; color: #60a5fa; }
+  .endpoint-body { padding: 16px 20px; }
+  .desc { color: #94a3b8; font-size: 14px; margin-bottom: 12px; }
+  .permission { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+  .permission span { background: #1a2535; color: #7dd3fc; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  th { background: #1e2a3a; color: #7dd3fc; text-align: left; padding: 8px 12px; font-weight: 600; }
+  td { border-top: 1px solid #2d3748; padding: 8px 12px; color: #cbd5e1; vertical-align: top; }
+  td code { background: #1a2535; color: #f472b6; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  td.req { color: #f87171; font-size: 11px; font-weight: 600; }
+  td.opt { color: #64748b; font-size: 11px; }
+
+  /* Code blocks */
+  .code-block { background: #0d1117; border: 1px solid #2d3748; border-radius: 8px; margin: 12px 0; overflow: hidden; }
+  .code-label { background: #1e2a3a; color: #64748b; font-size: 11px; padding: 6px 14px; font-family: monospace; letter-spacing: 0.5px; }
+  pre { padding: 16px; font-family: 'Courier New', monospace; font-size: 13px; color: #a5f3fc; overflow-x: auto; line-height: 1.5; }
+  .json-key    { color: #7dd3fc; }
+  .json-string { color: #a3e635; }
+  .json-number { color: #fb923c; }
+  .json-bool   { color: #c084fc; }
+
+  /* Note boxes */
+  .note { border-left: 3px solid #2563eb; background: #1e2d45; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; color: #93c5fd; }
+  .warning { border-left: 3px solid #d97706; background: #2a1f0e; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; color: #fcd34d; }
+
+  /* Divider */
+  .section-divider { border: none; border-top: 1px solid #2d3748; margin: 48px 0; }
+
+  /* Print */
+  @media print {
+    body { background: white; color: #1a202c; }
+    .container { max-width: 100%; padding: 20px; }
+    .endpoint { border-color: #e2e8f0; background: #f8fafc; break-inside: avoid; }
+    .endpoint-header { border-bottom-color: #e2e8f0; }
+    h1 { color: #1a202c; border-bottom-color: #2563eb; }
+    h2 { color: #1d4ed8; }
+    h3 { color: #3b82f6; }
+    p, .desc { color: #374151; }
+    .cover .logo { color: #1d4ed8; }
+    .cover .subtitle, .cover .meta { color: #6b7280; }
+    .toc { background: #f8fafc; border-color: #e2e8f0; }
+    .toc a { color: #374151; }
+    .code-block { background: #f1f5f9; border-color: #e2e8f0; }
+    pre { color: #0f172a; }
+    .note { background: #eff6ff; color: #1d4ed8; }
+    .warning { background: #fffbeb; color: #92400e; }
+    table td { color: #374151; }
+    th { background: #e2e8f0; color: #1d4ed8; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- COVER -->
+<div class="cover">
+  <div class="logo">⚡ DingDns</div>
+  <div class="subtitle">DNS Management Server — API Reference</div>
+  <div class="version">Version 2.0</div>
+  <div class="meta">Base URL: <code style="color:#60a5fa">https://api.dingdns.com</code> &nbsp;·&nbsp; May 2026</div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#overview">Overview &amp; Authentication</a></li>
+    <li><a href="#public">Public Endpoints</a></li>
+    <li><a href="#ddns">DDNS Update Endpoints</a></li>
+    <li><a href="#apikey">API Key Protected Endpoints</a>
+      <ol>
+        <li><a href="#apikey-zones">Zones</a></li>
+        <li><a href="#apikey-records">Records</a></li>
+        <li><a href="#apikey-ddnstokens">DDNS Tokens</a></li>
+      </ol>
+    </li>
+    <li><a href="#admin-auth">Admin Authentication</a></li>
+    <li><a href="#admin-dns">Admin — DNS Management</a></li>
+    <li><a href="#admin-server">Admin — Server &amp; System</a></li>
+    <li><a href="#admin-settings">Admin — Settings</a></li>
+    <li><a href="#admin-ssl">Admin — SSL Certificates</a></li>
+    <li><a href="#admin-security">Admin — Security</a></li>
+    <li><a href="#admin-apikeys">Admin — API Keys</a></li>
+    <li><a href="#admin-admins">Admin — Admin Users</a></li>
+    <li><a href="#admin-audit">Admin — Audit Logs</a></li>
+    <li><a href="#admin-email">Admin — Email</a></li>
+    <li><a href="#admin-dashboard">Admin — Dashboard</a></li>
+    <li><a href="#models">Data Models</a></li>
+    <li><a href="#errors">Error Reference</a></li>
+  </ol>
+</div>
+
+<!-- 1. OVERVIEW -->
+<h1 id="overview">1. Overview &amp; Authentication</h1>
+<p>DingDns exposes three categories of endpoints, each with a different authentication method:</p>
+
+<table>
+  <tr><th>Category</th><th>Base Path</th><th>Auth Method</th><th>Use Case</th></tr>
+  <tr><td>Public</td><td><code>/health</code>, <code>/api/ip</code></td><td>None</td><td>Health checks, IP detection</td></tr>
+  <tr><td>DDNS Update</td><td><code>/api/ddns/update</code>, <code>/nic/update</code></td><td>Token query param or Basic Auth</td><td>Dynamic DNS updates from routers/clients</td></tr>
+  <tr><td>API Key Protected</td><td><code>/api/*</code></td><td><code>X-API-Key</code> header</td><td>External applications (SaaS frontend, scripts)</td></tr>
+  <tr><td>Admin API</td><td><code>/admin/api/*</code></td><td>Bearer token in <code>Authorization</code> header</td><td>Admin panel, management scripts</td></tr>
+</table>
+
+<h2>API Key Authentication</h2>
+<div class="code-block">
+  <div class="code-label">REQUEST HEADER</div>
+  <pre>X-API-Key: your-api-key-here</pre>
+</div>
+
+<h2>Admin Bearer Token Authentication</h2>
+<div class="code-block">
+  <div class="code-label">REQUEST HEADER</div>
+  <pre>Authorization: Bearer &lt;token-from-login&gt;
+X-CSRF-Token: &lt;same-token&gt;</pre>
+</div>
+
+<div class="note">Admin tokens are obtained from <code>POST /admin/api/login</code> and expire after 24 hours. Include the token in both <code>Authorization: Bearer</code> and <code>X-CSRF-Token</code> headers.</div>
+
+<h2>Rate Limits</h2>
+<table>
+  <tr><th>Area</th><th>Limit</th></tr>
+  <tr><td>API Key routes (<code>/api/*</code>)</td><td>120 requests / minute</td></tr>
+  <tr><td>Admin routes (<code>/admin/*</code>)</td><td>60 requests / minute</td></tr>
+</table>
+
+<h2>CORS</h2>
+<p>CORS allowed origins are controlled per API Key. If an API Key has <code>allowed_origins: "*"</code> all origins are permitted. You may restrict to specific domains in the Admin Panel under API Keys.</p>
+
+<hr class="section-divider">
+
+<!-- 2. PUBLIC -->
+<h1 id="public">2. Public Endpoints</h1>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/health</span>
+    <span class="auth-badge auth-none">No Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Health check. Returns server status and version.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "status": "ok",
+  "service": "dingdns",
+  "version": "2.0"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/ip</span>
+    <span class="auth-badge auth-none">No Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Returns the caller's public IP address. Useful for DDNS clients to detect their current IP.</div>
+    <table>
+      <tr><th>Query Param</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>format</code></td><td class="opt">optional</td><td>Pass <code>json</code> to get JSON response instead of plain text</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">RESPONSE — plain text (default)</div>
+<pre>203.0.113.45</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE — ?format=json</div>
+<pre>{ "ip": "203.0.113.45" }</pre></div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 3. DDNS -->
+<h1 id="ddns">3. DDNS Update Endpoints</h1>
+<p>These endpoints allow routers, scripts, and clients to automatically update DNS A/AAAA records when the IP changes. Two protocols are supported: token-based (simple) and DynDNS-compatible (for routers).</p>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/ddns/update</span>
+    <span class="auth-badge auth-none">Token Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update a DNS record using a DDNS token. If <code>ip</code> is omitted, the caller's IP is used automatically.</div>
+    <table>
+      <tr><th>Query Param</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>token</code></td><td class="req">required</td><td>DDNS token linked to the record</td></tr>
+      <tr><td><code>ip</code> or <code>myip</code></td><td class="opt">optional</td><td>New IP address. Defaults to caller's IP if omitted</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">REQUEST EXAMPLE</div>
+<pre>GET /api/ddns/update?token=abc123xyz&amp;ip=203.0.113.45</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "success": true,
+  "old_ip": "203.0.113.1",
+  "new_ip": "203.0.113.45",
+  "record_name": "home",
+  "zone_name": "example.com",
+  "changed": true
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/api/ddns/update</span>
+    <span class="auth-badge auth-none">Token Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Same as GET version. Same query parameters apply.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/nic/update</span>
+    <span class="auth-badge auth-none">Basic Auth (DynDNS)</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">DynDNS-compatible endpoint. Compatible with most routers (ASUS, Mikrotik, pfSense, etc.). Use the DDNS token as the password in Basic Auth.</div>
+    <table>
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td>Username</td><td>Any string (ignored)</td></tr>
+      <tr><td>Password</td><td>Your DDNS token</td></tr>
+      <tr><td><code>hostname</code> query param</td><td>The record hostname (required)</td></tr>
+      <tr><td><code>myip</code> query param</td><td>New IP (optional, defaults to caller IP)</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">ROUTER SETUP EXAMPLE (curl)</div>
+<pre>curl -u "user:YOUR_DDNS_TOKEN" \
+  "https://api.dingdns.com/nic/update?hostname=home.example.com&amp;myip=203.0.113.45"</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE (DynDNS format)</div>
+<pre>good 203.0.113.45     # IP was updated
+nochg 203.0.113.45   # IP unchanged
+badauth               # Invalid token</pre></div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 4. API KEY PROTECTED -->
+<h1 id="apikey">4. API Key Protected Endpoints</h1>
+<p>These endpoints are for external applications (e.g., your SaaS frontend, scripts, or integrations). All require the <code>X-API-Key</code> header.</p>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/settings/public</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Returns public feature flags for use by a frontend application.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "captcha_enabled": false,
+  "registration_enabled": true,
+  "email_verification_enabled": true
+}</pre></div>
+  </div>
+</div>
+
+<h2 id="apikey-zones">4.1 Zones (API Key)</h2>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/zones</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List all DNS zones with their records.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "zones": [
+    {
+      "id": 1,
+      "name": "example.com",
+      "zone_type": "custom",
+      "is_active": true,
+      "serial": 2026051101,
+      "records": [...],
+      "created_at": "2026-01-15T10:00:00Z"
+    }
+  ],
+  "total": 1
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/zones/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get a single zone by ID, including all its records.</div>
+    <table>
+      <tr><th>Path Param</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td class="req">required</td><td>Zone ID (integer)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/api/zones</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Create a new DNS zone. NS records are automatically created pointing to ns1.dingdns.com and ns2.dingdns.com.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>name</code></td><td class="req">required</td><td>string</td><td>Domain name (e.g. <code>example.com</code> or <code>myapp.dingdns.com</code>)</td></tr>
+      <tr><td><code>zone_type</code></td><td class="opt">optional</td><td>string</td><td><code>custom</code> or <code>subdomain</code>. Auto-detected from name if omitted</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">REQUEST BODY</div>
+<pre>{
+  "name": "example.com",
+  "zone_type": "custom"
+}</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE 201</div>
+<pre>{
+  "id": 5,
+  "name": "example.com",
+  "zone_type": "custom",
+  "is_active": true,
+  "serial": 2026051101,
+  "created_at": "2026-05-11T12:00:00Z"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/api/zones/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update a zone's name or active status.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>is_active</code></td><td class="opt">optional</td><td>boolean</td><td>Enable or disable the zone</td></tr>
+      <tr><td><code>name</code></td><td class="opt">optional</td><td>string</td><td>Rename the zone</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method DELETE">DELETE</span>
+    <span class="path">/api/zones/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Delete a zone and all its records and DDNS tokens.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{ "message": "zone deleted" }</pre></div>
+  </div>
+</div>
+
+<h2 id="apikey-records">4.2 Records (API Key)</h2>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/records/zone/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List all DNS records for a zone.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "records": [
+    {
+      "id": 1,
+      "zone_id": 5,
+      "name": "@",
+      "type": "A",
+      "content": "203.0.113.45",
+      "ttl": 300,
+      "priority": 0,
+      "is_ddns": false,
+      "created_at": "2026-05-11T12:00:00Z"
+    }
+  ],
+  "total": 1
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/api/records/zone/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Create a new DNS record in a zone.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>name</code></td><td class="req">required</td><td>string</td><td>Record name. Use <code>@</code> for root, <code>*</code> for wildcard</td></tr>
+      <tr><td><code>type</code></td><td class="req">required</td><td>string</td><td>Record type: <code>A</code>, <code>AAAA</code>, <code>CNAME</code>, <code>MX</code>, <code>TXT</code>, <code>NS</code>, <code>SRV</code>, <code>CAA</code>, <code>PTR</code></td></tr>
+      <tr><td><code>content</code></td><td class="req">required</td><td>string</td><td>Record value (IP for A, hostname for CNAME/MX, text for TXT)</td></tr>
+      <tr><td><code>ttl</code></td><td class="opt">optional</td><td>integer</td><td>Time to live in seconds. Default: <code>300</code></td></tr>
+      <tr><td><code>priority</code></td><td class="opt">optional</td><td>integer</td><td>Priority for MX and SRV records. Default: <code>0</code></td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">REQUEST — A Record</div>
+<pre>{
+  "name": "@",
+  "type": "A",
+  "content": "203.0.113.45",
+  "ttl": 300
+}</pre></div>
+    <div class="code-block"><div class="code-label">REQUEST — MX Record</div>
+<pre>{
+  "name": "@",
+  "type": "MX",
+  "content": "mail.example.com",
+  "ttl": 3600,
+  "priority": 10
+}</pre></div>
+    <div class="code-block"><div class="code-label">REQUEST — TXT Record (SPF)</div>
+<pre>{
+  "name": "@",
+  "type": "TXT",
+  "content": "v=spf1 include:_spf.google.com ~all",
+  "ttl": 3600
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/api/records/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update an existing DNS record. Only include fields you want to change.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>name</code></td><td class="opt">optional</td><td>string</td><td>New record name</td></tr>
+      <tr><td><code>type</code></td><td class="opt">optional</td><td>string</td><td>New record type</td></tr>
+      <tr><td><code>content</code></td><td class="opt">optional</td><td>string</td><td>New record value</td></tr>
+      <tr><td><code>ttl</code></td><td class="opt">optional</td><td>integer</td><td>New TTL</td></tr>
+      <tr><td><code>priority</code></td><td class="opt">optional</td><td>integer</td><td>New priority</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method DELETE">DELETE</span>
+    <span class="path">/api/records/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Delete a DNS record and any associated DDNS tokens.</div>
+  </div>
+</div>
+
+<h2 id="apikey-ddnstokens">4.3 DDNS Tokens (API Key)</h2>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/api/ddns/tokens</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List all DDNS tokens.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/api/ddns/tokens</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Create a new DDNS token for a specific A/AAAA record.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>record_id</code></td><td class="req">required</td><td>integer</td><td>ID of the A or AAAA record to update</td></tr>
+      <tr><td><code>label</code></td><td class="opt">optional</td><td>string</td><td>Human-readable label (e.g. "Home Router")</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">REQUEST BODY</div>
+<pre>{ "record_id": 12, "label": "Home Router" }</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE 201</div>
+<pre>{
+  "id": 3,
+  "record_id": 12,
+  "token": "a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5",
+  "label": "Home Router",
+  "is_active": true,
+  "last_used": null,
+  "last_ip": "",
+  "created_at": "2026-05-11T12:00:00Z"
+}</pre></div>
+    <div class="warning">⚠ Store the token securely. It is shown only once in the create response and cannot be retrieved again.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method DELETE">DELETE</span>
+    <span class="path">/api/ddns/tokens/:id</span>
+    <span class="auth-badge auth-apikey">API Key</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Delete a DDNS token.</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 5. ADMIN AUTH -->
+<h1 id="admin-auth">5. Admin Authentication</h1>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/captcha</span>
+    <span class="auth-badge auth-none">No Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get a math captcha challenge. Only required if captcha is enabled in settings.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{ "captcha_id": "abc123", "captcha_question": "12 + 7" }</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/login</span>
+    <span class="auth-badge auth-none">No Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Authenticate as admin. Returns a bearer token valid for 24 hours.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>username</code></td><td class="req">required</td><td>string</td><td>Username or email</td></tr>
+      <tr><td><code>password</code></td><td class="req">required</td><td>string</td><td>Admin password</td></tr>
+      <tr><td><code>totp_code</code></td><td class="opt">conditional</td><td>string</td><td>6-digit 2FA code (required if 2FA enabled)</td></tr>
+      <tr><td><code>captcha_id</code></td><td class="opt">conditional</td><td>string</td><td>Captcha ID (required if captcha enabled)</td></tr>
+      <tr><td><code>captcha_answer</code></td><td class="opt">conditional</td><td>string</td><td>Answer to captcha math question</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">REQUEST BODY (basic)</div>
+<pre>{ "username": "admin", "password": "yourpassword" }</pre></div>
+    <div class="code-block"><div class="code-label">REQUEST BODY (with 2FA)</div>
+<pre>{ "username": "admin", "password": "yourpassword", "totp_code": "123456" }</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 86400,
+  "admin": {
+    "id": 1,
+    "username": "admin",
+    "email": "admin@dingdns.com",
+    "role": "super_admin"
+  }
+}</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE 428 — 2FA Required</div>
+<pre>{ "error": "2FA code required", "requires_2fa": true }</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/logout</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Revoke the current session token.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/me</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get the current admin's profile.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "id": 1,
+  "username": "admin",
+  "email": "admin@dingdns.com",
+  "role": "super_admin",
+  "permissions": ["*"],
+  "two_factor_enabled": false,
+  "ip_restricted": false,
+  "last_login": "2026-05-11T10:00:00Z"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/admin/api/me</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update current admin's email.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>email</code></td><td class="req">required</td><td>string</td><td>New email address</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/admin/api/password</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Change current admin's password.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>old_password</code></td><td class="req">required</td><td>string</td><td>Current password</td></tr>
+      <tr><td><code>new_password</code></td><td class="req">required</td><td>string (min 8)</td><td>New password</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>Two-Factor Authentication (2FA)</h2>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/2fa/setup</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Initiate 2FA setup. Returns a TOTP secret and QR code URI to scan with an authenticator app.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "secret": "JBSWY3DPEHPK3PXP",
+  "uri": "otpauth://totp/DingDns-Admin:admin@dingdns.com?secret=JBSWY3DPEHPK3PXP&issuer=DingDns-Admin"
+}</pre></div>
+    <div class="note">After scanning, confirm by calling <code>POST /admin/api/2fa/verify</code> with a code from your app.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/2fa/verify</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Confirm 2FA setup. Returns backup codes — save them securely.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>code</code></td><td class="req">required</td><td>string</td><td>6-digit code from authenticator app</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "message": "2FA enabled",
+  "backup_codes": ["abc12345", "def67890", "ghi11223", "jkl44556", "mno77889", "pqr00112"]
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/2fa/disable</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Disable 2FA. Requires password confirmation.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>password</code></td><td class="req">required</td><td>string</td><td>Current admin password</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>Sessions &amp; IP Allowlist</h2>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/sessions</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List all active sessions for the current admin.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method DELETE">DELETE</span>
+    <span class="path">/admin/api/sessions/:id</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Revoke a specific session by ID.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/ip-allowlist</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List IP allowlist entries for the current admin.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/ip-allowlist</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Add an IP to the allowlist.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>ip</code></td><td class="req">required</td><td>string</td><td>IP address or CIDR range</td></tr>
+      <tr><td><code>label</code></td><td class="opt">optional</td><td>string</td><td>Description (e.g. "Office")</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/admin/api/ip-restriction</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Enable or disable IP restriction for the current admin account.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>enabled</code></td><td class="req">required</td><td>boolean</td><td>Whether to enforce IP allowlist on login</td></tr>
+    </table>
+    <div class="warning">⚠ Enable IP restriction only after adding your current IP to the allowlist, or you will lock yourself out.</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 6. ADMIN DNS -->
+<h1 id="admin-dns">6. Admin — DNS Management</h1>
+<p>These endpoints mirror the API Key zone/record endpoints but are accessed via admin auth. They also include DNS testing and cache management.</p>
+<p>Zones: <code>GET/POST /admin/api/zones</code>, <code>GET/PUT/DELETE /admin/api/zones/:id</code><br>
+Records: <code>GET /admin/api/records/zone/:id</code>, <code>POST /admin/api/records/zone/:id</code>, <code>PUT/DELETE /admin/api/records/:id</code><br>
+DDNS Tokens: <code>GET/POST /admin/api/ddns-tokens</code>, <code>PUT/DELETE /admin/api/ddns-tokens/:id</code></p>
+<div class="note">Required permission: <code>dns.view</code> (read), <code>dns.create</code>, <code>dns.edit</code>, <code>dns.delete</code>, <code>ddns.view</code>, <code>ddns.manage</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/dns-test</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Test whether a domain's DNS is correctly configured and pointing to this server.</div>
+    <div class="permission">Permission: <span>dns.view</span></div>
+    <table>
+      <tr><th>Query Param</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>domain</code></td><td class="req">required</td><td>Domain to test (e.g. <code>example.com</code>)</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "domain": "example.com",
+  "tested_at": "2026-05-11T12:00:00Z",
+  "server_ip": "51.255.195.167",
+  "resolved_ips": ["51.255.195.167"],
+  "resolved_ips_cf": ["51.255.195.167"],
+  "ns_records": ["ns1.dingdns.com", "ns2.dingdns.com"],
+  "ns_points_to_us": true,
+  "a_record_matches": true,
+  "zone_in_db": true,
+  "zone_id": 1,
+  "status": "ok",
+  "issues": []
+}</pre></div>
+    <p style="color:#64748b;font-size:13px"><code>status</code>: <code>"ok"</code>, <code>"warning"</code>, or <code>"error"</code></p>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/server-info</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get server identity: public IP, domain names, nameserver hostnames, and effective API base URL.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "server_ip": "51.255.195.167",
+  "server_domain": "dingdns.com",
+  "api_domain": "api.dingdns.com",
+  "api_base_url": "https://api.dingdns.com",
+  "ns1_hostname": "ns1.dingdns.com",
+  "ns2_hostname": "ns2.dingdns.com"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/server-info/detect-ip</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Auto-detect and save the server's public IP address.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{ "ip": "51.255.195.167", "message": "Server IP saved" }</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/dns/cache-status</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get DNS cache statistics and auto-reload settings.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "zones_loaded": 5,
+  "records_loaded": 42,
+  "last_reload": "2026-05-11T11:55:00Z",
+  "auto_reload": "true",
+  "reload_interval": "30",
+  "reload_debounce": "500"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/dns/reload</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Trigger an immediate DNS cache reload from the database.</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 7. ADMIN SERVER -->
+<h1 id="admin-server">7. Admin — Server &amp; System</h1>
+<div class="note">Required permission: <code>server.manage</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/server/status</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">System resource usage: CPU, memory, disk, load average, uptime.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "uptime": "72h15m30s",
+  "uptime_secs": 260130,
+  "started_at": "2026-05-08T10:00:00Z",
+  "go_version": "go1.22.5",
+  "os": "linux",
+  "goroutines": 18,
+  "num_cpu": 2,
+  "hostname": "vps-1",
+  "cpu": { "raw": "%Cpu(s):  2.5 us,  0.8 sy" },
+  "memory": { "total_mb": "2048", "used_mb": "890", "free_mb": "300", "available_mb": "1100" },
+  "disk": { "total": "40G", "used": "8.2G", "free": "30G", "percent": "22%", "mount": "/" },
+  "load": { "1min": "0.12", "5min": "0.08", "15min": "0.05" }
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/server/services</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get status of system services (dingdns, nginx, sshd).</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "services": [
+    { "name": "dingdns", "status": "active", "active": true, "since": "Mon 2026-05-08 10:00:00 UTC", "memory": "45678592" },
+    { "name": "nginx", "status": "active", "active": true, "since": "..." }
+  ]
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/server/services/:name/restart</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Restart a service. Only <code>dingdns</code> and <code>nginx</code> are allowed.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/server/logs</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get recent journal logs for a service.</div>
+    <table>
+      <tr><th>Query Param</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>service</code></td><td><code>dingdns</code></td><td>Service name: <code>dingdns</code> or <code>nginx</code></td></tr>
+      <tr><td><code>lines</code></td><td><code>100</code></td><td>Number of log lines to return</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/server/database-info</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get database file size and row counts per table.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "size_bytes": 204800,
+  "size_mb": "0.20",
+  "path": "/opt/dingdns/data/dingdns.db",
+  "tables": {
+    "zones": 5, "records": 42, "ddns_tokens": 3,
+    "api_keys": 2, "admins": 1, "audit_logs": 120
+  }
+}</pre></div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 8. SETTINGS -->
+<h1 id="admin-settings">8. Admin — Settings</h1>
+<div class="note">Required permission: <code>settings.view</code> (read), <code>settings.manage</code> (write)</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/settings</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get all system settings as key-value pairs.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "base_url": "https://dingdns.com",
+  "api_domain": "api.dingdns.com",
+  "server_domain": "dingdns.com",
+  "server_ip": "51.255.195.167",
+  "ns1_hostname": "ns1.dingdns.com",
+  "ns2_hostname": "ns2.dingdns.com",
+  "maintenance_mode": "false",
+  "ssl_redirect_http": "true",
+  "ssl_allow_http_port": "true",
+  "ssl_auto_renew": "false",
+  "ssl_renew_days_before": "30",
+  "admin_captcha_enabled": "false",
+  "admin_session_timeout": "1440",
+  "admin_2fa_required": "false",
+  "dns_auto_reload": "true",
+  "dns_reload_interval": "30",
+  "dns_reload_debounce": "500"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/admin/api/settings</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update one or more settings. Only send the keys you want to change. All values are strings.</div>
+    <div class="code-block"><div class="code-label">REQUEST BODY (example — enable auto-renew)</div>
+<pre>{
+  "ssl_auto_renew": "true",
+  "ssl_renew_days_before": "14"
+}</pre></div>
+    <table>
+      <tr><th>Key</th><th>Values</th><th>Description</th></tr>
+      <tr><td><code>server_domain</code></td><td>string</td><td>Main domain (e.g. dingdns.com)</td></tr>
+      <tr><td><code>api_domain</code></td><td>string</td><td>API subdomain on this server</td></tr>
+      <tr><td><code>server_ip</code></td><td>IPv4</td><td>Server public IP</td></tr>
+      <tr><td><code>base_url</code></td><td>URL</td><td>Base URL for email links</td></tr>
+      <tr><td><code>maintenance_mode</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Disable public API</td></tr>
+      <tr><td><code>ssl_redirect_http</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Redirect port 80 → HTTPS</td></tr>
+      <tr><td><code>ssl_allow_http_port</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Allow port 8080 access</td></tr>
+      <tr><td><code>ssl_auto_renew</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Auto-renew SSL cert</td></tr>
+      <tr><td><code>ssl_renew_days_before</code></td><td>integer string</td><td>Days before expiry to renew (default: "30")</td></tr>
+      <tr><td><code>admin_captcha_enabled</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Require captcha on admin login</td></tr>
+      <tr><td><code>admin_2fa_required</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Require 2FA for all admins</td></tr>
+      <tr><td><code>dns_auto_reload</code></td><td><code>"true"</code> / <code>"false"</code></td><td>Auto-reload DNS cache on changes</td></tr>
+      <tr><td><code>dns_reload_interval</code></td><td>integer string (seconds)</td><td>Periodic reload interval</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 9. SSL -->
+<h1 id="admin-ssl">9. Admin — SSL Certificates</h1>
+<div class="note">Required permission: <code>server.manage</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/ssl/status</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get SSL certificate status for the configured API domain.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "api": {
+    "domain": "api.dingdns.com",
+    "cert_exists": true,
+    "cert_path": "/opt/dingdns/ssl/certbot/live/api.dingdns.com/fullchain.pem",
+    "key_path": "/opt/dingdns/ssl/certbot/live/api.dingdns.com/privkey.pem",
+    "status": "valid",
+    "expires_at": "2026-08-09T12:00:00Z",
+    "days_remaining": 89,
+    "issuer": "CN=R11,O=Let's Encrypt,C=US"
+  }
+}</pre></div>
+    <p style="color:#64748b;font-size:13px"><code>status</code>: <code>"valid"</code>, <code>"expiring_soon"</code> (&lt;30 days), <code>"expired"</code>, <code>"not_issued"</code>, <code>"not_configured"</code></p>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/ssl/issue</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Start issuing a Let's Encrypt certificate via certbot. Returns a job ID for polling progress. The domain must have an A record pointing to this server and port 80 must be open.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>domain</code></td><td class="opt">optional</td><td>Domain to issue for. Defaults to <code>api_domain</code> setting</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{ "job_id": "a3f8b2c1d4e5f6a7", "domain": "api.dingdns.com" }</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/ssl/job/:id</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Poll the status of a certbot job. Poll every 1 second until <code>done</code> is true.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200 (in progress)</div>
+<pre>{ "lines": ["🔐 Issuing SSL for api.dingdns.com", "⏳ Starting certbot..."], "done": false, "error": false }</pre></div>
+    <div class="code-block"><div class="code-label">RESPONSE 200 (completed)</div>
+<pre>{ "lines": ["...", "✅ Certificate issued successfully!"], "done": true, "error": false }</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/ssl/renew</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Trigger immediate renewal of all due certificates via <code>certbot renew</code>.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/ssl/auto-renew</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get auto-renew configuration and last run result.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "auto_renew": true,
+  "renew_days_before": "30",
+  "last_renew_at": "2026-05-10T03:00:00Z",
+  "last_renew_result": "success"
+}</pre></div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 10. SECURITY -->
+<h1 id="admin-security">10. Admin — Security</h1>
+<div class="note">Required permission: <code>security.view</code> / <code>security.manage</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/ip-bans</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body"><div class="desc">List all banned IPs.</div></div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/ip-bans</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Ban an IP address.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>ip</code></td><td class="req">required</td><td>IP address to ban</td></tr>
+      <tr><td><code>reason</code></td><td class="opt">optional</td><td>Reason for ban</td></tr>
+      <tr><td><code>expires_in</code></td><td class="opt">optional</td><td>Minutes until ban expires (0 = permanent)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method DELETE">DELETE</span>
+    <span class="path">/admin/api/ip-bans/:id</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body"><div class="desc">Remove an IP ban.</div></div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/login-attempts</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List recent admin login attempts (successful and failed).</div>
+    <table>
+      <tr><th>Query Param</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>page</code></td><td>1</td><td>Page number for pagination</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 11. API KEYS -->
+<h1 id="admin-apikeys">11. Admin — API Keys</h1>
+<div class="note">Required permission: <code>apikeys.view</code> / <code>apikeys.manage</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/api-keys</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body"><div class="desc">List all API keys.</div></div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/api-keys</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Create a new API key.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>name</code></td><td class="req">required</td><td>Descriptive name (e.g. "My SaaS Frontend")</td></tr>
+      <tr><td><code>allowed_origins</code></td><td class="opt">optional</td><td>Comma-separated origins or <code>*</code> for all</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">RESPONSE 201</div>
+<pre>{
+  "id": 2,
+  "name": "My SaaS Frontend",
+  "key": "dk_a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5",
+  "allowed_origins": "https://dingdns.com",
+  "is_active": true,
+  "created_at": "2026-05-11T12:00:00Z"
+}</pre></div>
+    <div class="warning">⚠ The API key value is only shown once. Store it securely.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/admin/api/api-keys/:id</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update an API key's name, origins, or active status.</div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method DELETE">DELETE</span>
+    <span class="path">/admin/api/api-keys/:id</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body"><div class="desc">Delete an API key.</div></div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 12. ADMIN USERS -->
+<h1 id="admin-admins">12. Admin — Admin Users</h1>
+<div class="note">Required permission: <code>admins.view</code> / <code>admins.manage</code>. Only <code>super_admin</code> can manage other admins.</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/admins</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body"><div class="desc">List all admin users.</div></div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/admins</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Create a new admin user.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>username</code></td><td class="req">required</td><td>Login username</td></tr>
+      <tr><td><code>email</code></td><td class="req">required</td><td>Email address</td></tr>
+      <tr><td><code>password</code></td><td class="req">required</td><td>Initial password (min 8 chars)</td></tr>
+      <tr><td><code>role</code></td><td class="opt">optional</td><td><code>"admin"</code> or <code>"super_admin"</code>. Default: <code>"admin"</code></td></tr>
+      <tr><td><code>permissions</code></td><td class="opt">optional</td><td>Array of permission keys, or <code>"*"</code> for all</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/admins/permissions</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List all available permission keys and their descriptions.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200 (excerpt)</div>
+<pre>{
+  "permissions": [
+    { "key": "dns.view",     "label": "View Zones & Records" },
+    { "key": "dns.create",   "label": "Create Zones & Records" },
+    { "key": "dns.edit",     "label": "Edit Zones & Records" },
+    { "key": "dns.delete",   "label": "Delete Zones & Records" },
+    { "key": "ddns.view",    "label": "View DDNS Tokens" },
+    { "key": "ddns.manage",  "label": "Manage DDNS Tokens" },
+    { "key": "server.manage","label": "Server Management" },
+    { "key": "settings.view","label": "View Settings" },
+    { "key": "settings.manage","label": "Manage Settings" },
+    { "key": "security.view","label": "View Security" },
+    { "key": "security.manage","label": "Manage Security" },
+    { "key": "admins.view",  "label": "View Admins" },
+    { "key": "admins.manage","label": "Manage Admins" },
+    { "key": "audit.view",   "label": "View Audit Logs" }
+  ]
+}</pre></div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 13. AUDIT -->
+<h1 id="admin-audit">13. Admin — Audit Logs</h1>
+<div class="note">Required permission: <code>audit.view</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/audit-logs</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">List audit log entries with pagination and optional filters.</div>
+    <table>
+      <tr><th>Query Param</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>page</code></td><td>1</td><td>Page number</td></tr>
+      <tr><td><code>action</code></td><td>—</td><td>Filter by action (e.g. <code>create_zone</code>)</td></tr>
+      <tr><td><code>resource</code></td><td>—</td><td>Filter by resource type (e.g. <code>zone</code>, <code>record</code>)</td></tr>
+    </table>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "logs": [
+    {
+      "id": 42,
+      "user_id": 1,
+      "action": "create_zone",
+      "resource": "zone",
+      "resource_id": 5,
+      "details": "example.com (custom)",
+      "ip": "203.0.113.1",
+      "created_at": "2026-05-11T12:00:00Z"
+    }
+  ],
+  "total": 120,
+  "page": 1,
+  "per_page": 20
+}</pre></div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 14. EMAIL -->
+<h1 id="admin-email">14. Admin — Email (SMTP)</h1>
+<div class="note">Required permission: <code>settings.manage</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/email/settings</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body"><div class="desc">Get current SMTP configuration.</div></div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method PUT">PUT</span>
+    <span class="path">/admin/api/email/settings</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Update SMTP configuration.</div>
+    <div class="code-block"><div class="code-label">REQUEST BODY</div>
+<pre>{
+  "smtp_host": "smtp.gmail.com",
+  "smtp_port": "587",
+  "smtp_user": "noreply@dingdns.com",
+  "smtp_pass": "app-password",
+  "smtp_from": "noreply@dingdns.com",
+  "smtp_tls":  "true"
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method POST">POST</span>
+    <span class="path">/admin/api/email/test</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Send a test email to verify SMTP configuration.</div>
+    <table>
+      <tr><th>Body Field</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>email</code></td><td class="req">required</td><td>Recipient email address</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 15. DASHBOARD -->
+<h1 id="admin-dashboard">15. Admin — Dashboard</h1>
+<div class="note">Required permission: <code>dashboard.view</code></div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/dashboard/stats</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get summary statistics for the dashboard.</div>
+    <div class="code-block"><div class="code-label">RESPONSE 200</div>
+<pre>{
+  "zones":       { "total": 5, "active": 5 },
+  "records":     { "total": 42 },
+  "ddns_tokens": { "total": 3, "active": 3 },
+  "api_keys":    { "total": 2, "active": 2 }
+}</pre></div>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method GET">GET</span>
+    <span class="path">/admin/api/dashboard/activity</span>
+    <span class="auth-badge auth-admin">Admin Auth</span>
+  </div>
+  <div class="endpoint-body">
+    <div class="desc">Get the 20 most recent audit log entries for the activity feed.</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- 16. MODELS -->
+<h1 id="models">16. Data Models</h1>
+
+<h2>Zone</h2>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>id</code></td><td>integer</td><td>Unique zone ID</td></tr>
+  <tr><td><code>name</code></td><td>string</td><td>Zone domain name (e.g. <code>example.com</code>)</td></tr>
+  <tr><td><code>zone_type</code></td><td>string</td><td><code>"custom"</code> (own domain) or <code>"subdomain"</code> (*.dingdns.com)</td></tr>
+  <tr><td><code>is_active</code></td><td>boolean</td><td>Whether zone is served by DNS</td></tr>
+  <tr><td><code>serial</code></td><td>integer</td><td>SOA serial number (auto-incremented on changes)</td></tr>
+  <tr><td><code>records</code></td><td>array</td><td>Included when using <code>Preload</code> (zone detail endpoints)</td></tr>
+  <tr><td><code>created_at</code></td><td>datetime</td><td>ISO 8601</td></tr>
+  <tr><td><code>updated_at</code></td><td>datetime</td><td>ISO 8601</td></tr>
+</table>
+
+<h2>Record</h2>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>id</code></td><td>integer</td><td>Unique record ID</td></tr>
+  <tr><td><code>zone_id</code></td><td>integer</td><td>Parent zone ID</td></tr>
+  <tr><td><code>name</code></td><td>string</td><td>Record name (<code>@</code> = zone root, <code>*</code> = wildcard, <code>sub</code> = subdomain)</td></tr>
+  <tr><td><code>type</code></td><td>string</td><td><code>A</code>, <code>AAAA</code>, <code>CNAME</code>, <code>MX</code>, <code>TXT</code>, <code>NS</code>, <code>SRV</code>, <code>CAA</code>, <code>PTR</code></td></tr>
+  <tr><td><code>content</code></td><td>string</td><td>Record value</td></tr>
+  <tr><td><code>ttl</code></td><td>integer</td><td>Time to live in seconds</td></tr>
+  <tr><td><code>priority</code></td><td>integer</td><td>Priority (MX/SRV only)</td></tr>
+  <tr><td><code>is_ddns</code></td><td>boolean</td><td>True if a DDNS token is attached</td></tr>
+</table>
+
+<h2>DDNSToken</h2>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>id</code></td><td>integer</td><td>Token ID</td></tr>
+  <tr><td><code>record_id</code></td><td>integer</td><td>Associated A/AAAA record</td></tr>
+  <tr><td><code>token</code></td><td>string</td><td>Secret token (shown only on creation)</td></tr>
+  <tr><td><code>label</code></td><td>string</td><td>Human-readable label</td></tr>
+  <tr><td><code>is_active</code></td><td>boolean</td><td>Whether token is usable</td></tr>
+  <tr><td><code>last_used</code></td><td>datetime|null</td><td>Last successful update time</td></tr>
+  <tr><td><code>last_ip</code></td><td>string</td><td>Last IP address submitted</td></tr>
+</table>
+
+<h2>APIKey</h2>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>id</code></td><td>integer</td><td>Key ID</td></tr>
+  <tr><td><code>name</code></td><td>string</td><td>Descriptive name</td></tr>
+  <tr><td><code>key</code></td><td>string</td><td>The API key value (shown only on creation)</td></tr>
+  <tr><td><code>allowed_origins</code></td><td>string</td><td>Comma-separated origins or <code>"*"</code></td></tr>
+  <tr><td><code>is_active</code></td><td>boolean</td><td>Whether key is valid</td></tr>
+  <tr><td><code>last_used</code></td><td>datetime|null</td><td>Last request time</td></tr>
+</table>
+
+<hr class="section-divider">
+
+<!-- 17. ERRORS -->
+<h1 id="errors">17. Error Reference</h1>
+<p>All errors return JSON with an <code>error</code> field:</p>
+<div class="code-block"><div class="code-label">ERROR FORMAT</div>
+<pre>{ "error": "description of what went wrong" }</pre></div>
+
+<table>
+  <tr><th>HTTP Status</th><th>Meaning</th><th>Common Causes</th></tr>
+  <tr><td><code>400</code></td><td>Bad Request</td><td>Missing required fields, invalid values, zone already exists</td></tr>
+  <tr><td><code>401</code></td><td>Unauthorized</td><td>Missing or invalid token / API key</td></tr>
+  <tr><td><code>403</code></td><td>Forbidden</td><td>Insufficient permissions, IP not in allowlist, account locked</td></tr>
+  <tr><td><code>404</code></td><td>Not Found</td><td>Zone/record/token not found</td></tr>
+  <tr><td><code>409</code></td><td>Conflict</td><td>Zone with this name already exists</td></tr>
+  <tr><td><code>428</code></td><td>Precondition Required</td><td>2FA code required (login flow)</td></tr>
+  <tr><td><code>429</code></td><td>Too Many Requests</td><td>Rate limit exceeded</td></tr>
+  <tr><td><code>500</code></td><td>Internal Server Error</td><td>Database error, command execution failure</td></tr>
+</table>
+
+<h2>Complete Integration Example (PHP)</h2>
+<div class="code-block"><div class="code-label">PHP — Full Flow: Login → Create Zone → Add A Record → Create DDNS Token</div>
+<pre>&lt;?php
+$base = 'https://api.dingdns.com';
+
+// 1. Admin Login
+$res = json_decode(file_get_contents("$base/admin/api/login", false, stream_context_create([
+    'http' => ['method' => 'POST', 'header' => 'Content-Type: application/json',
+               'content' => json_encode(['username' => 'admin', 'password' => 'yourpass'])]
+])));
+$token = $res->token;
+
+// 2. Create Zone
+$ch = curl_init("$base/admin/api/zones");
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => json_encode(['name' => 'example.com']),
+    CURLOPT_HTTPHEADER => ["Authorization: Bearer $token", "Content-Type: application/json",
+                           "X-CSRF-Token: $token"]
+]);
+$zone = json_decode(curl_exec($ch));
+$zoneId = $zone->id;
+
+// 3. Create A Record
+curl_setopt($ch, CURLOPT_URL, "$base/admin/api/records/zone/$zoneId");
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    'name' => '@', 'type' => 'A', 'content' => '203.0.113.45', 'ttl' => 300
+]));
+$record = json_decode(curl_exec($ch));
+
+// 4. Create DDNS Token for the record
+curl_setopt($ch, CURLOPT_URL, "$base/admin/api/ddns-tokens");
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    'record_id' => $record->id, 'label' => 'Home Router'
+]));
+$ddns = json_decode(curl_exec($ch));
+echo "DDNS Update URL: $base/api/ddns/update?token={$ddns->token}\n";
+
+// 5. DDNS Update (no auth needed, just the token)
+file_get_contents("$base/api/ddns/update?token={$ddns->token}&amp;ip=203.0.113.99");</pre></div>
+
+<div class="code-block"><div class="code-label">cURL — Using API Key (from SaaS frontend)</div>
+<pre># List all zones
+curl -H "X-API-Key: dk_your_api_key" https://api.dingdns.com/api/zones
+
+# Create a subdomain zone
+curl -X POST -H "X-API-Key: dk_your_api_key" -H "Content-Type: application/json" \
+  -d '{"name":"myapp.dingdns.com"}' \
+  https://api.dingdns.com/api/zones
+
+# Add an A record
+curl -X POST -H "X-API-Key: dk_your_api_key" -H "Content-Type: application/json" \
+  -d '{"name":"@","type":"A","content":"203.0.113.45","ttl":300}' \
+  https://api.dingdns.com/api/records/zone/5
+
+# DDNS update (no API key needed)
+curl "https://api.dingdns.com/api/ddns/update?token=YOUR_TOKEN"</pre></div>
+
+<div style="text-align:center; padding: 60px 0 40px; color: #475569; font-size: 13px; border-top: 1px solid #2d3748; margin-top: 60px;">
+  DingDns API Documentation v2.0 &nbsp;·&nbsp; Generated May 2026<br>
+  Base URL: <code style="color:#60a5fa">https://api.dingdns.com</code>
+</div>
+
+</div>
+</body>
+</html>

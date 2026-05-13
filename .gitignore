@@ -1,0 +1,52 @@
+# Dependencies
+backend/admin-ui/node_modules/
+backend/admin-ui/dist/
+
+# Build outputs
+backend/internal/adminui/dist/
+*.exe
+*.bin
+
+# Go build
+backend/dingdns
+backend/dingdns-*
+
+# Environment & secrets
+*.env
+.env.*
+config.local.json
+secrets.*
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# SSL certs
+*.pem
+*.key
+*.crt
+
+# Logs
+*.log
+/logs/
+
+# Deploy helpers (VPS-specific)
+deploy/
+__pycache__/
+*.py
+ssh_helper.py
+upload_all.py
+
+# Claude Code (contains tokens/settings)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
