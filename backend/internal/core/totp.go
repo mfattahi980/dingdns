@@ -21,11 +21,16 @@ func GenerateTOTPSecret() (string, error) {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(bytes), nil
 }
 
-// GenerateBackupCodes creates 8 random backup codes
+// GenerateBackupCodes creates 8 random backup codes formatted as "XXXX-XXXX".
+//
+// We seed 5 random bytes, not 4: base32-encoding 4 bytes without padding
+// produces 7 characters (ceil(4*8/5)), which made the old code panic on
+// code[4:8] with "slice bounds out of range [:8] with length 7". With 5
+// bytes we get exactly 8 base32 chars, which slice cleanly into two halves.
 func GenerateBackupCodes() ([]string, error) {
 	codes := make([]string, 8)
 	for i := range codes {
-		b := make([]byte, 4)
+		b := make([]byte, 5)
 		if _, err := rand.Read(b); err != nil {
 			return nil, err
 		}
