@@ -172,4 +172,6 @@ export const syncFirewallRules = () => api.post('/firewall/sync')
 // SSL
 export const getSSLStatus = () => api.get('/ssl/status')
 export const issueSSLCert = (domain?: string) => api.post('/ssl/issue', { domain })
-export const getSSLJob = (jobId: string) => api.
+export const getSSLJob = (jobId: string) => api.get(`/ssl/job/${jobId}`)
+export const renewSSLCert = () => api.post('/ssl/renew')
+export const getSSLAutoRenew = () => api.get('/ssl/auto-renew')
