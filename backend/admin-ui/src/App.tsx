@@ -115,4 +115,11 @@ const AppRouter: React.FC = () => {
             <Route path="account/sessions" element={<AccountSessions />} />
           </Route>
 
-          <Route pa
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
+    </AuthProvider>
+  )
+}
+
+export default AppRouter
