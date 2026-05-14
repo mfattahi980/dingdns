@@ -185,4 +185,17 @@ const SecurityPage: React.FC = () => {
       <Modal title="Add IP to Allowlist" open={ipModalOpen}
         onCancel={() => setIpModalOpen(false)} onOk={() => ipForm.submit()}
         confirmLoading={addIpMut.isPending}>
-        <Form form={ipForm} layout="v
+        <Form form={ipForm} layout="vertical" onFinish={v => addIpMut.mutate(v)}>
+          <Form.Item name="ip" label="IP Address" rules={[{ required: true }]}>
+            <Input placeholder="1.2.3.4" />
+          </Form.Item>
+          <Form.Item name="label" label="Label" rules={[{ required: true }]}>
+            <Input placeholder="Office" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  )
+}
+
+export default SecurityPage
