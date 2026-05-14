@@ -5,11 +5,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -423,12 +425,81 @@ func IssueSSLCert(c *gin.Context) {
 		err := cmd.Wait()
 		if err != nil {
 			job.finish(fmt.Sprintf("certbot exited with error: %v", err))
-		} else {
-			job.finish("")
+			return
 		}
+
+		// Certbot succeeded — wire the new certificate into config.json
+		// and restart the service so HTTPS actually starts listening on :443.
+		// Without this step the user has to manually edit config.json and
+		// systemctl restart, which defeats the point of a one-click button.
+		if applyErr := applySSLConfig(domain, job); applyErr != nil {
+			job.add(fmt.Sprintf("⚠️ Cert issued but auto-config failed: %v", applyErr))
+			job.add("   Edit /opt/dingdns/config.json manually and restart dingdns.")
+			job.finish("")
+			return
+		}
+
+		job.finish("")
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"job_id": jobID, "domain": domain})
+}
+
+// applySSLConfig rewrites /opt/dingdns/config.json to point at the certbot
+// live paths and flips ssl_enabled to true, then asks systemd to restart
+// dingdns so the new TLS listener comes up. The restart will SIGTERM the
+// current process — that's OK, the job state and certbot output have
+// already been delivered to the client through earlier polls.
+func applySSLConfig(domain string, job *sslJob) error {
+	const cfgPath = "/opt/dingdns/config.json"
+	certPath := fmt.Sprintf("/opt/dingdns/ssl/certbot/live/%s/fullchain.pem", domain)
+	keyPath := fmt.Sprintf("/opt/dingdns/ssl/certbot/live/%s/privkey.pem", domain)
+
+	// Sanity: certbot really did write the live files
+	if _, err := os.Stat(certPath); err != nil {
+		return fmt.Errorf("expected cert at %s: %w", certPath, err)
+	}
+	if _, err := os.Stat(keyPath); err != nil {
+		return fmt.Errorf("expected key at %s: %w", keyPath, err)
+	}
+
+	job.add("📝 Updating config.json with SSL paths...")
+
+	raw, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return fmt.Errorf("read config: %w", err)
+	}
+
+	// Parse loosely so we don't lose any fields we don't know about.
+	var m map[string]interface{}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return fmt.Errorf("parse config: %w", err)
+	}
+	m["ssl_enabled"] = true
+	m["ssl_cert"] = certPath
+	m["ssl_key"] = keyPath
+
+	out, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	if err := os.WriteFile(cfgPath, out, 0o600); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+	job.add("✅ config.json updated (ssl_enabled=true, paths point at certbot live dir)")
+
+	// Restart in a detached goroutine so we get a chance to finalize the
+	// current HTTP response/job state before the process is killed.
+	job.add("🔄 Restarting dingdns service to apply SSL...")
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		cmd := exec.Command("sudo", "-n", "systemctl", "restart", "dingdns")
+		if err := cmd.Run(); err != nil {
+			log.Printf("auto-restart after SSL issue failed: %v", err)
+		}
+	}()
+
+	return nil
 }
 
 // GetSSLJob returns the current status and output lines of a certbot job
@@ -548,7 +619,6 @@ func RenewSSLCert(c *gin.Context) {
 // GetCacheStatus returns current DNS cache statistics
 func GetCacheStatus(c *gin.Context) {
 	status := dnscore.CacheStatus()
-	// Also add current settings
 	status["auto_reload"] = core.GetSetting("dns_auto_reload")
 	if status["auto_reload"] == "" {
 		status["auto_reload"] = "true"
