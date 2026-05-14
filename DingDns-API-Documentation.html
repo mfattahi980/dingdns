@@ -829,9 +829,9 @@ DDNS Tokens: <code>GET/POST /admin/api/ddns-tokens</code>, <code>PUT/DELETE /adm
 <pre>{
   "domain": "example.com",
   "tested_at": "2026-05-11T12:00:00Z",
-  "server_ip": "51.255.195.167",
-  "resolved_ips": ["51.255.195.167"],
-  "resolved_ips_cf": ["51.255.195.167"],
+  "server_ip": "YOUR_SERVER_IP",
+  "resolved_ips": ["YOUR_SERVER_IP"],
+  "resolved_ips_cf": ["YOUR_SERVER_IP"],
   "ns_records": ["ns1.dingdns.com", "ns2.dingdns.com"],
   "ns_points_to_us": true,
   "a_record_matches": true,
@@ -854,7 +854,7 @@ DDNS Tokens: <code>GET/POST /admin/api/ddns-tokens</code>, <code>PUT/DELETE /adm
     <div class="desc">Get server identity: public IP, domain names, nameserver hostnames, and effective API base URL.</div>
     <div class="code-block"><div class="code-label">RESPONSE 200</div>
 <pre>{
-  "server_ip": "51.255.195.167",
+  "server_ip": "YOUR_SERVER_IP",
   "server_domain": "dingdns.com",
   "api_domain": "api.dingdns.com",
   "api_base_url": "https://api.dingdns.com",
@@ -873,7 +873,7 @@ DDNS Tokens: <code>GET/POST /admin/api/ddns-tokens</code>, <code>PUT/DELETE /adm
   <div class="endpoint-body">
     <div class="desc">Auto-detect and save the server's public IP address.</div>
     <div class="code-block"><div class="code-label">RESPONSE 200</div>
-<pre>{ "ip": "51.255.195.167", "message": "Server IP saved" }</pre></div>
+<pre>{ "ip": "YOUR_SERVER_IP", "message": "Server IP saved" }</pre></div>
   </div>
 </div>
 
@@ -1025,7 +1025,7 @@ DDNS Tokens: <code>GET/POST /admin/api/ddns-tokens</code>, <code>PUT/DELETE /adm
   "base_url": "https://dingdns.com",
   "api_domain": "api.dingdns.com",
   "server_domain": "dingdns.com",
-  "server_ip": "51.255.195.167",
+  "server_ip": "YOUR_SERVER_IP",
   "ns1_hostname": "ns1.dingdns.com",
   "ns2_hostname": "ns2.dingdns.com",
   "maintenance_mode": "false",
