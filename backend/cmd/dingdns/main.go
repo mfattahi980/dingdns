@@ -48,13 +48,11 @@ func main() {
 
 	log.Printf("DingDns v%s starting...", version)
 
-	// Load config
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Generate JWT secret if not set (used for admin sessions)
 	if cfg.JWTSecret == "" {
 		bytes := make([]byte, 32)
 		rand.Read(bytes)
@@ -63,7 +61,6 @@ func main() {
 		log.Println("Generated new JWT secret")
 	}
 
-	// Register all modules (ORDER MATTERS for menu display)
 	core.RegisterModule(modDashboard.New())
 	core.RegisterModule(modDNS.New())
 	core.RegisterModule(modAPIKeys.New())
@@ -76,29 +73,22 @@ func main() {
 	core.RegisterModule(modAudit.New())
 	core.RegisterModule(modSettings.New())
 
-	// Initialize database
 	log.Println("Initializing database...")
 	if err := models.InitDB(cfg.DBPath); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	log.Println("Database initialized")
 
-	// Initialize modules
 	for _, m := range core.GetModules() {
 		if err := m.OnInit(); err != nil {
 			log.Printf("Warning: module %s init failed: %v", m.ID(), err)
 		}
 	}
 
-	// Ensure super admin exists.
-	// Pass the configPath so we can find the installer's handoff file,
-	// and the admin email from config so we don't hardcode dingdns.com.
 	ensureSuperAdmin(*configPath, cfg.AdminEmail)
-
-	// Ensure at least one API key exists
 	ensureDefaultAPIKey()
+	seedSettingsFromConfig(cfg)
 
-	// Start DNS server
 	log.Println("Starting DNS server...")
 	dnsServer := dnsserver.NewServer(cfg)
 	if err := dnsServer.Start(); err != nil {
@@ -106,11 +96,9 @@ func main() {
 	}
 	dnsserver.SetGlobalServer(dnsServer)
 
-	// Setup API router
 	handler := api.SetupRouter()
 
 	if cfg.SSLEnabled {
-		// HTTPS on 443
 		go func() {
 			addr := ":" + cfg.HTTPSPort
 			log.Printf("HTTPS server starting on %s", addr)
@@ -119,7 +107,6 @@ func main() {
 			}
 		}()
 
-		// Port 80: redirect to HTTPS (if ssl_redirect_http != "false") or serve normally
 		go func() {
 			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if core.GetSetting("ssl_redirect_http") != "false" {
@@ -134,7 +121,6 @@ func main() {
 			}
 		}()
 
-		// Port 8080: plain HTTP access (can be disabled via ssl_allow_http_port=false)
 		go func() {
 			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if core.GetSetting("ssl_allow_http_port") == "false" {
@@ -150,11 +136,17 @@ func main() {
 			}
 		}()
 	} else {
-		// Plain HTTP mode (no SSL)
 		go func() {
+			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if core.GetSetting("ssl_allow_http_port") == "false" {
+					http.Error(w, "HTTP access on this port is disabled by admin.", http.StatusForbidden)
+					return
+				}
+				handler.ServeHTTP(w, r)
+			})
 			addr := ":" + cfg.HTTPPort
 			log.Printf("API server starting on %s", addr)
-			if err := http.ListenAndServe(addr, handler); err != nil {
+			if err := http.ListenAndServe(addr, h); err != nil {
 				log.Fatalf("Failed to start HTTP server: %v", err)
 			}
 		}()
@@ -168,7 +160,6 @@ func main() {
 	log.Printf("  Domain:      %s", cfg.Domain)
 	log.Println("=========================================")
 
-	// Wait for shutdown signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -178,18 +169,6 @@ func main() {
 	log.Println("DingDns stopped")
 }
 
-// initialAdminPasswordFile is the path the installer drops a one-time
-// password file at. We read it, use it, then delete it — so the secret
-// never lives on disk after the first successful boot.
-//
-// Resolution order for the initial admin password:
-//  1. DINGDNS_INITIAL_ADMIN_PASSWORD env var (handy for CI / re-installs)
-//  2. The handoff file at <configDir>/.initial-admin-password
-//     (defaults to /opt/dingdns/.initial-admin-password)
-//  3. A securely generated random password, logged once on startup
-//
-// In every case the password is logged to stdout/journal exactly once
-// when the admin is created. There is no hardcoded "admin123" anymore.
 func initialAdminPasswordPath(configPath string) string {
 	dir := filepath.Dir(configPath)
 	if dir == "" || dir == "." {
@@ -211,20 +190,14 @@ func loadInitialAdminPassword(configPath string) (password string, source string
 		}
 	}
 
-	// Fall back to a random password — better than a known default.
 	bytes := make([]byte, 18)
 	if _, err := rand.Read(bytes); err != nil {
-		// crypto/rand should not fail on real systems; if it does we
-		// refuse to invent a weak password.
 		log.Fatalf("Failed to generate random admin password: %v", err)
 	}
-	// URL-safe base64, trimmed of padding, gives ~24 printable chars.
 	pw := strings.TrimRight(base64.URLEncoding.EncodeToString(bytes), "=")
 	return pw, "random"
 }
 
-// consumeInitialAdminPasswordFile removes the handoff file after the
-// admin has been created, so the secret doesn't linger on disk.
 func consumeInitialAdminPasswordFile(configPath string) {
 	pwFile := initialAdminPasswordPath(configPath)
 	if _, err := os.Stat(pwFile); err == nil {
@@ -238,7 +211,6 @@ func ensureSuperAdmin(configPath string, adminEmail string) {
 	var count int64
 	core.DB.Model(&core.Admin{}).Where("role = ?", "super_admin").Count(&count)
 	if count > 0 {
-		// Still clean up the handoff file if it somehow lingered.
 		consumeInitialAdminPasswordFile(configPath)
 		return
 	}
@@ -263,7 +235,6 @@ func ensureSuperAdmin(configPath string, adminEmail string) {
 		return
 	}
 
-	// Wipe the handoff file now that the password is committed to the DB.
 	consumeInitialAdminPasswordFile(configPath)
 
 	log.Println("========================================")
@@ -277,6 +248,24 @@ func ensureSuperAdmin(configPath string, adminEmail string) {
 		log.Println("  (set during installation — change it in the panel if needed)")
 	}
 	log.Println("========================================")
+}
+
+// seedSettingsFromConfig fills empty DB-backed settings rows from config.json.
+// Only writes if the key is currently empty so user-saved values always win.
+func seedSettingsFromConfig(cfg *config.Config) {
+	seedIfEmpty := func(key, val string) {
+		if val == "" {
+			return
+		}
+		if existing := core.GetSetting(key); existing != "" {
+			return
+		}
+		core.SetSetting(key, val)
+	}
+
+	seedIfEmpty("server_domain", cfg.Domain)
+	seedIfEmpty("ns1_hostname", cfg.NSPrimary)
+	seedIfEmpty("ns2_hostname", cfg.NSSecondary)
 }
 
 func ensureDefaultAPIKey() {
