@@ -448,4 +448,208 @@ write_initial_admin_password() {
 
 # ============================================================
 # Systemd
-# =====================
+# ============================================================
+setup_service() {
+    info "Setting up systemd service..."
+    cat > /etc/systemd/system/${SERVICE_NAME}.service <<EOF
+[Unit]
+Description=DingDns - DNS Management Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dingdns
+Group=dingdns
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/dingdns -config ${CONFIG_FILE}
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=${DATA_DIR} ${INSTALL_DIR}/backups ${INSTALL_DIR}/config.json ${LOG_DIR} ${INSTALL_DIR}/ssl
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dingdns
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable ${SERVICE_NAME} > /dev/null 2>&1
+    success "Service installed and enabled"
+}
+
+# ============================================================
+# Firewall
+# ============================================================
+setup_firewall() {
+    info "Configuring firewall..."
+
+    if command -v ufw &>/dev/null; then
+        ufw allow 22/tcp  > /dev/null 2>&1 || true
+        ufw allow 53/tcp  > /dev/null 2>&1
+        ufw allow 53/udp  > /dev/null 2>&1
+        ufw allow 80/tcp  > /dev/null 2>&1
+        ufw allow 443/tcp > /dev/null 2>&1
+        ufw allow 8080/tcp > /dev/null 2>&1
+        if ! ufw status 2>/dev/null | grep -q "Status: active"; then
+            ufw --force enable > /dev/null 2>&1 || true
+        fi
+        success "Firewall rules added: SSH(22), DNS(53), HTTP(80), HTTPS(443), Panel(8080)"
+    elif command -v iptables &>/dev/null; then
+        iptables -I INPUT -p tcp --dport 22   -j ACCEPT 2>/dev/null || true
+        iptables -I INPUT -p tcp --dport 53   -j ACCEPT 2>/dev/null || true
+        iptables -I INPUT -p udp --dport 53   -j ACCEPT 2>/dev/null || true
+        iptables -I INPUT -p tcp --dport 80   -j ACCEPT 2>/dev/null || true
+        iptables -I INPUT -p tcp --dport 443  -j ACCEPT 2>/dev/null || true
+        iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null || true
+        success "iptables rules added"
+    else
+        warn "No firewall detected — make sure ports 22, 53, 80, 443, 8080 are open"
+    fi
+}
+
+# ============================================================
+# Start
+# ============================================================
+start_service() {
+    info "Starting DingDns..."
+    systemctl start ${SERVICE_NAME}
+    sleep 3
+    if systemctl is-active --quiet ${SERVICE_NAME}; then
+        success "DingDns is running!"
+    else
+        echo ""
+        journalctl -u ${SERVICE_NAME} -n 15 --no-pager
+        error "DingDns failed to start. Check logs above."
+    fi
+}
+
+# ============================================================
+# Summary
+# ============================================================
+print_summary() {
+    PUBLIC_IP=$(curl -s4 --connect-timeout 5 ifconfig.me 2>/dev/null || echo "YOUR_SERVER_IP")
+    echo ""
+    echo -e "${GREEN}============================================${NC}"
+    echo -e "${GREEN}   DingDns Installation Complete!${NC}"
+    echo -e "${GREEN}============================================${NC}"
+    echo ""
+    echo -e "  ${CYAN}Admin Panel:${NC}  http://${PUBLIC_IP}:8080/admin"
+    echo -e "  ${CYAN}DNS Server:${NC}   ${PUBLIC_IP}:53"
+    echo -e "  ${CYAN}API:${NC}          http://${PUBLIC_IP}:8080/api"
+    echo ""
+    echo -e "  ${YELLOW}Admin Login:${NC}"
+    echo -e "    Username:  admin"
+    if [ -n "${CFG_ADMIN_PASSWORD:-}" ]; then
+        echo -e "    Password:  ${CFG_ADMIN_PASSWORD}"
+        if [ "${CFG_ADMIN_PASSWORD_AUTO:-no}" = "yes" ]; then
+            echo -e "    ${YELLOW}(auto-generated — save it now, it won't be shown again)${NC}"
+        fi
+    else
+        echo -e "    Password:  (check ${INSTALL_DIR}/.initial-admin-password)"
+    fi
+    echo ""
+    echo -e "  ${CYAN}Firewall ports open:${NC}  22 (SSH), 53 (DNS), 80 (HTTP/SSL), 443 (HTTPS), 8080 (Panel)"
+    echo ""
+    echo -e "  ${CYAN}SSL Certificate (after pointing domain DNS to this server):${NC}"
+    echo -e "    1. Go to Admin Panel → Settings → General"
+    echo -e "       Set API Domain: api.yourdomain.com"
+    echo -e "    2. Go to Server → SSL Certificate"
+    echo -e "       Click 'Issue Certificate' — certbot is already installed!"
+    echo ""
+    echo -e "  ${CYAN}DDNS Update URL:${NC}"
+    echo -e "    curl \"http://${PUBLIC_IP}:8080/api/ddns/update?token=YOUR_TOKEN\""
+    echo ""
+    echo -e "  ${CYAN}Commands:${NC}"
+    echo -e "    systemctl status dingdns"
+    echo -e "    systemctl restart dingdns"
+    echo -e "    journalctl -u dingdns -f"
+    echo ""
+}
+
+# ============================================================
+# Uninstall
+# ============================================================
+uninstall() {
+    banner
+    warn "Uninstalling DingDns..."
+    systemctl stop ${SERVICE_NAME} 2>/dev/null || true
+    systemctl disable ${SERVICE_NAME} 2>/dev/null || true
+    rm -f /etc/systemd/system/${SERVICE_NAME}.service
+    systemctl daemon-reload
+
+    read -rp "Remove all data and config? (y/N): " REMOVE_DATA
+    if [[ "${REMOVE_DATA}" =~ ^[Yy]$ ]]; then
+        rm -rf "${INSTALL_DIR}" "${LOG_DIR}"
+        success "All data removed"
+    else
+        rm -f "${INSTALL_DIR}/dingdns"
+        rm -rf "${INSTALL_DIR}/frontend"
+        success "Binary removed. Data preserved at ${DATA_DIR}"
+    fi
+    userdel dingdns 2>/dev/null || true
+    success "DingDns uninstalled"
+}
+
+# ============================================================
+# Update
+# ============================================================
+update() {
+    banner
+    info "Updating DingDns..."
+    check_root
+    detect_os
+    detect_arch
+    install_dependencies
+    install_go
+    install_node
+    systemctl stop ${SERVICE_NAME} 2>/dev/null || true
+    build_frontend
+    build_backend
+    systemctl start ${SERVICE_NAME}
+    sleep 2
+    if systemctl is-active --quiet ${SERVICE_NAME}; then
+        success "DingDns updated and running!"
+    else
+        error "Update failed. Check: journalctl -u dingdns -n 20"
+    fi
+}
+
+# ============================================================
+# Main
+# ============================================================
+main() {
+    banner
+
+    case "${1:-}" in
+        --uninstall|uninstall) check_root; uninstall; exit 0 ;;
+        --update|update) update; exit 0 ;;
+    esac
+
+    check_root
+    detect_os
+    detect_arch
+    prompt_config
+    stop_conflicting_services
+    install_dependencies
+    install_go
+    install_node
+    setup_directories
+    build_frontend
+    build_backend
+    configure
+    write_initial_admin_password
+    setup_service
+    setup_firewall
+    start_service
+    print_summary
+}
+
+main "$@"
