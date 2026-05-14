@@ -33,6 +33,7 @@ func (m *ServerModule) MenuItems() []core.MenuItem {
 		{Label: "Configuration", Path: "/server/config", Icon: "SettingOutlined", Permission: "server.manage"},
 		{Label: "Backup", Path: "/server/backup", Icon: "CloudDownloadOutlined", Permission: "server.manage"},
 		{Label: "SSL Certificate", Path: "/server/ssl", Icon: "SafetyCertificateOutlined", Permission: "server.manage"},
+		{Label: "System Updates", Path: "/server/updates", Icon: "CloudDownloadOutlined", Permission: "server.view"},
 	}
 }
 
@@ -73,7 +74,4 @@ func (m *ServerModule) RegisterRoutes(r *gin.RouterGroup) {
 
 
 		// System updates (check GitHub for new commits + trigger installer --update)
-		srv.GET("/update/info", core.RequirePermission("server.view"), m.handler.GetVersionInfo)
-		srv.POST("/update", core.RequirePermission("server.manage"), m.handler.TriggerUpdate)
-	}
-}
+		srv.GET("/update/info", core.RequirePermission("server.view"), m.handl

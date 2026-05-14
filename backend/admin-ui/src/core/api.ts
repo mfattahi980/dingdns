@@ -114,6 +114,9 @@ export const getDBEngines = () => api.get('/server/db-engines')
 export const testDBConnection = (data: any) => api.post('/server/db-test', data)
 export const startDBMigration = (data: any) => api.post('/server/db-migrate', data)
 export const getMigrationJob = (id: string) => api.get(`/server/db-migrate/${id}`)
+// System Updates
+export const getUpdateInfo = () => api.get('/server/update/info')
+export const triggerUpdate = () => api.post('/server/update')
 
 // Email
 export const getEmailSettings = () => api.get('/email/settings')
@@ -169,6 +172,4 @@ export const syncFirewallRules = () => api.post('/firewall/sync')
 // SSL
 export const getSSLStatus = () => api.get('/ssl/status')
 export const issueSSLCert = (domain?: string) => api.post('/ssl/issue', { domain })
-export const getSSLJob = (jobId: string) => api.get(`/ssl/job/${jobId}`)
-export const renewSSLCert = () => api.post('/ssl/renew')
-export const getSSLAutoRenew = () => api.get('/ssl/auto-renew')
+export const getSSLJob = (jobId: string) => api.

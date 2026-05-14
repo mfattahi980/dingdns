@@ -31,6 +31,7 @@ const SettingsSecurity = lazy(() => import('./modules/settings/SettingsSecurityP
 const SettingsDNSCache = lazy(() => import('./modules/settings/DNSCachePage'))
 const DNSTest = lazy(() => import('./modules/dns/DNSTestPage'))
 const SSLManagement = lazy(() => import('./modules/server/SSLPage'))
+const SystemUpdates = lazy(() => import('./modules/server/UpdatesPage'))
 const AccountProfile = lazy(() => import('./modules/account/ProfilePage'))
 const AccountSecurity = lazy(() => import('./modules/account/SecurityPage'))
 const AccountSessions = lazy(() => import('./modules/account/SessionsPage'))
@@ -86,6 +87,7 @@ const AppRouter: React.FC = () => {
             <Route path="server/config" element={<ServerConfig />} />
             <Route path="server/backup" element={<ServerBackup />} />
             <Route path="server/ssl" element={<SSLManagement />} />
+            <Route path="server/updates" element={<SystemUpdates />} />
 
             {/* Email — backend sends /email/settings & /email/test */}
             <Route path="email/settings" element={<EmailSettings />} />
@@ -113,11 +115,4 @@ const AppRouter: React.FC = () => {
             <Route path="account/sessions" element={<AccountSessions />} />
           </Route>
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Suspense>
-    </AuthProvider>
-  )
-}
-
-export default AppRouter
+          <Route pa
