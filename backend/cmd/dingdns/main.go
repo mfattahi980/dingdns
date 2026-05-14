@@ -47,6 +47,9 @@ func main() {
 	}
 
 	log.Printf("DingDns v%s starting...", version)
+	// Make the binary's version string available to the server module's
+	// /update/info handler — it returns it in the panel's "current version".
+	modServer.SetRuntimeVersion(version)
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {

@@ -371,6 +371,31 @@ build_backend() {
     CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-s -w" -o "${INSTALL_DIR}/dingdns" ./cmd/dingdns/ \
         || error "Go build failed — check the output above for compile errors"
 
+    # Record which commit we just deployed so the in-panel update checker
+    # can compare against GitHub's main branch. We try the local repo first
+    # (most common path when installing from a clone), then fall back to a
+    # fresh GET against the GitHub API if that fails.
+    local installed_commit=""
+    if [ -d "${BUILD_DIR}/backend/.git" ]; then
+        installed_commit="$(git -C "${BUILD_DIR}/backend" rev-parse HEAD 2>/dev/null || true)"
+    fi
+    if [ -z "${installed_commit}" ] && [ -d "${BUILD_DIR}/repo/.git" ]; then
+        installed_commit="$(git -C "${BUILD_DIR}/repo" rev-parse HEAD 2>/dev/null || true)"
+    fi
+    if [ -z "${installed_commit}" ]; then
+        # Last resort: ask GitHub for the current main HEAD. Only used when
+        # building from a tarball / shallow source with no .git.
+        installed_commit="$(curl -fsSL \
+            "https://api.github.com/repos/mfattahi980/dingdns/commits/main" 2>/dev/null \
+            | grep -oE '"sha"[[:space:]]*:[[:space:]]*"[a-f0-9]+"' | head -1 \
+            | sed 's/.*"\([a-f0-9]\+\)"$/\1/' || true)"
+    fi
+    if [ -n "${installed_commit}" ]; then
+        printf '%s\n' "${installed_commit}" > "${INSTALL_DIR}/.installed-commit"
+        chown dingdns:dingdns "${INSTALL_DIR}/.installed-commit"
+        chmod 644 "${INSTALL_DIR}/.installed-commit"
+    fi
+
     chmod +x "${INSTALL_DIR}/dingdns"
     setcap 'cap_net_bind_service=+ep' "${INSTALL_DIR}/dingdns"
     chown dingdns:dingdns "${INSTALL_DIR}/dingdns"

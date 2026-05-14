@@ -70,5 +70,10 @@ func (m *ServerModule) RegisterRoutes(r *gin.RouterGroup) {
 		srv.POST("/db-test", core.RequirePermission("server.manage"), m.handler.TestDBConnection)
 		srv.POST("/db-migrate", core.RequirePermission("server.manage"), m.handler.StartDBMigration)
 		srv.GET("/db-migrate/:id", core.RequirePermission("server.manage"), m.handler.GetMigrationJob)
+
+
+		// System updates (check GitHub for new commits + trigger installer --update)
+		srv.GET("/update/info", core.RequirePermission("server.view"), m.handler.GetVersionInfo)
+		srv.POST("/update", core.RequirePermission("server.manage"), m.handler.TriggerUpdate)
 	}
 }
