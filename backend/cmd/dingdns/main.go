@@ -211,4 +211,102 @@ func loadInitialAdminPassword(configPath string) (password string, source string
 		}
 	}
 
-	// Fall b
+	// Fall back to a random password — better than a known default.
+	bytes := make([]byte, 18)
+	if _, err := rand.Read(bytes); err != nil {
+		// crypto/rand should not fail on real systems; if it does we
+		// refuse to invent a weak password.
+		log.Fatalf("Failed to generate random admin password: %v", err)
+	}
+	// URL-safe base64, trimmed of padding, gives ~24 printable chars.
+	pw := strings.TrimRight(base64.URLEncoding.EncodeToString(bytes), "=")
+	return pw, "random"
+}
+
+// consumeInitialAdminPasswordFile removes the handoff file after the
+// admin has been created, so the secret doesn't linger on disk.
+func consumeInitialAdminPasswordFile(configPath string) {
+	pwFile := initialAdminPasswordPath(configPath)
+	if _, err := os.Stat(pwFile); err == nil {
+		if err := os.Remove(pwFile); err != nil {
+			log.Printf("Warning: could not remove %s: %v", pwFile, err)
+		}
+	}
+}
+
+func ensureSuperAdmin(configPath string, adminEmail string) {
+	var count int64
+	core.DB.Model(&core.Admin{}).Where("role = ?", "super_admin").Count(&count)
+	if count > 0 {
+		// Still clean up the handoff file if it somehow lingered.
+		consumeInitialAdminPasswordFile(configPath)
+		return
+	}
+
+	password, source := loadInitialAdminPassword(configPath)
+
+	if adminEmail == "" {
+		adminEmail = "admin@localhost"
+	}
+
+	admin := core.Admin{
+		Username:    "admin",
+		Email:       adminEmail,
+		Role:        "super_admin",
+		Permissions: "*",
+		IsActive:    true,
+	}
+	admin.SetPassword(password)
+
+	if err := core.DB.Create(&admin).Error; err != nil {
+		log.Printf("Failed to create super admin: %v", err)
+		return
+	}
+
+	// Wipe the handoff file now that the password is committed to the DB.
+	consumeInitialAdminPasswordFile(configPath)
+
+	log.Println("========================================")
+	log.Println("  Super Admin created:")
+	log.Println("  Username: admin")
+	if source == "random" {
+		log.Printf("  Password: %s", password)
+		log.Println("  (auto-generated — save it now, it won't be shown again)")
+	} else {
+		log.Printf("  Password source: %s", source)
+		log.Println("  (set during installation — change it in the panel if needed)")
+	}
+	log.Println("========================================")
+}
+
+func ensureDefaultAPIKey() {
+	var count int64
+	models.DB.Model(&models.APIKey{}).Count(&count)
+	if count > 0 {
+		return
+	}
+
+	key, err := models.GenerateAPIKey()
+	if err != nil {
+		log.Printf("Failed to generate default API key: %v", err)
+		return
+	}
+
+	apiKey := models.APIKey{
+		Name:           "Default Key",
+		Key:            key,
+		AllowedOrigins: "*",
+		IsActive:       true,
+	}
+
+	if err := models.DB.Create(&apiKey).Error; err != nil {
+		log.Printf("Failed to create default API key: %v", err)
+		return
+	}
+
+	log.Println("========================================")
+	log.Println("  Default API key created:")
+	log.Printf("  Key: %s", key)
+	log.Println("  Restrict origins in admin panel!")
+	log.Println("========================================")
+}
