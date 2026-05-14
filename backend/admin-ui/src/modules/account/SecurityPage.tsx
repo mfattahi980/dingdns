@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Card, Form, Input, Button, Typography, message, Alert, Space, Switch, Table, Tag, Modal } from 'antd'
+import { Card, Form, Input, Button, Typography, message, Alert, Space, Switch, Table, Tag, Modal, QRCode } from 'antd'
 import { LockOutlined, SafetyOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { changePassword, setup2FA, verify2FA, disable2FA, getIPAllowlist, addIPAllowlist, deleteIPAllowlist, toggleIPRestriction, getProfile } from '../../core/api'
@@ -114,9 +114,16 @@ const SecurityPage: React.FC = () => {
         ) : totpData ? (
           <div>
             <Alert message="Scan this QR code with your authenticator app" type="info" showIcon style={{ marginBottom: 16 }} />
-            {totpData.qr_code && (
+            {/* Render the QR client-side from the otpauth:// URI. The backend
+                returns `uri` directly (no base64 PNG), and antd's QRCode is
+                a built-in component, so no extra dependency is needed. */}
+            {(totpData.uri || totpData.qr_code) && (
               <div style={{ marginBottom: 16 }}>
-                <img src={`data:image/png;base64,${totpData.qr_code}`} alt="QR Code" style={{ width: 200 }} />
+                {totpData.uri ? (
+                  <QRCode value={totpData.uri} size={200} bordered={false} />
+                ) : (
+                  <img src={`data:image/png;base64,${totpData.qr_code}`} alt="QR Code" style={{ width: 200 }} />
+                )}
               </div>
             )}
             <Text code copyable style={{ display: 'block', marginBottom: 16 }}>{totpData.secret}</Text>
@@ -178,17 +185,4 @@ const SecurityPage: React.FC = () => {
       <Modal title="Add IP to Allowlist" open={ipModalOpen}
         onCancel={() => setIpModalOpen(false)} onOk={() => ipForm.submit()}
         confirmLoading={addIpMut.isPending}>
-        <Form form={ipForm} layout="vertical" onFinish={v => addIpMut.mutate(v)}>
-          <Form.Item name="ip" label="IP Address" rules={[{ required: true }]}>
-            <Input placeholder="1.2.3.4" />
-          </Form.Item>
-          <Form.Item name="label" label="Label" rules={[{ required: true }]}>
-            <Input placeholder="Office" />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
-  )
-}
-
-export default SecurityPage
+        <Form form={ipForm} layout="v
