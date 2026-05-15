@@ -1,8 +1,9 @@
 import React from 'react'
-import { Card, Form, Switch, InputNumber, Button, Typography, message, Divider, Alert, Row, Col, Statistic } from 'antd'
+import { Card, Form, Switch, InputNumber, Button, Typography, message, Divider, Alert, Row, Col, Statistic, Select, Space, Tag } from 'antd'
 import {
   SaveOutlined, CheckCircleOutlined, LockOutlined, SafetyOutlined,
   FieldTimeOutlined, AlertOutlined, RobotOutlined, ArrowRightOutlined,
+  StopOutlined, FireOutlined, ThunderboltOutlined,
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -70,6 +71,19 @@ const SettingsSecurityPage: React.FC = () => {
         admin_session_timeout: parseInt(s.admin_session_timeout || '1440', 10),
         admin_lockout_attempts: parseInt(s.admin_lockout_attempts || '5', 10),
         admin_lockout_duration: parseInt(s.admin_lockout_duration || '15', 10),
+        // Auto-Ban engine
+        auto_ban_enabled:               s.auto_ban_enabled === 'true',
+        auto_ban_threshold:             parseInt(s.auto_ban_threshold || '5', 10),
+        auto_ban_window_minutes:        parseInt(s.auto_ban_window_minutes || '10', 10),
+        auto_ban_duration:              s.auto_ban_duration || '1h',
+        auto_ban_firewall_mode:         s.auto_ban_firewall_mode || 'app_only',
+        auto_ban_trigger_bad_api_key:   s.auto_ban_trigger_bad_api_key !== 'false',
+        auto_ban_trigger_bad_origin:    s.auto_ban_trigger_bad_origin !== 'false',
+        auto_ban_trigger_bad_ip:        s.auto_ban_trigger_bad_ip !== 'false',
+        auto_ban_trigger_rate_limit:    s.auto_ban_trigger_rate_limit !== 'false',
+        auto_ban_trigger_bad_login:     s.auto_ban_trigger_bad_login !== 'false',
+        auto_ban_trigger_bad_token:     s.auto_ban_trigger_bad_token !== 'false',
+        auto_ban_trigger_bad_path:      s.auto_ban_trigger_bad_path === 'true',
       })
       return s
     }),
@@ -82,6 +96,19 @@ const SettingsSecurityPage: React.FC = () => {
       admin_session_timeout:  String(data.admin_session_timeout || 1440),
       admin_lockout_attempts: String(data.admin_lockout_attempts || 5),
       admin_lockout_duration: String(data.admin_lockout_duration || 15),
+      // Auto-Ban engine
+      auto_ban_enabled:              String(!!data.auto_ban_enabled),
+      auto_ban_threshold:            String(data.auto_ban_threshold || 5),
+      auto_ban_window_minutes:       String(data.auto_ban_window_minutes || 10),
+      auto_ban_duration:             String(data.auto_ban_duration || '1h'),
+      auto_ban_firewall_mode:        String(data.auto_ban_firewall_mode || 'app_only'),
+      auto_ban_trigger_bad_api_key:  String(!!data.auto_ban_trigger_bad_api_key),
+      auto_ban_trigger_bad_origin:   String(!!data.auto_ban_trigger_bad_origin),
+      auto_ban_trigger_bad_ip:       String(!!data.auto_ban_trigger_bad_ip),
+      auto_ban_trigger_rate_limit:   String(!!data.auto_ban_trigger_rate_limit),
+      auto_ban_trigger_bad_login:    String(!!data.auto_ban_trigger_bad_login),
+      auto_ban_trigger_bad_token:    String(!!data.auto_ban_trigger_bad_token),
+      auto_ban_trigger_bad_path:     String(!!data.auto_ban_trigger_bad_path),
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
@@ -298,16 +325,178 @@ const SettingsSecurityPage: React.FC = () => {
             </Col>
           </Row>
 
+          {/* Auto-Ban Engine */}
+          <Divider orientation="left">
+            <span><ThunderboltOutlined style={{ marginRight: 8 }} />Auto-Ban Engine</span>
+          </Divider>
+
+          <Alert
+            type="info"
+            showIcon
+            icon={<StopOutlined />}
+            style={{ marginBottom: 16 }}
+            message="Automatic IP blacklisting for suspicious API traffic"
+            description={
+              <div style={{ fontSize: 12 }}>
+                When an IP triggers too many suspicious events (bad API key, bad origin, rate-limit,
+                bad login, bad DDNS token, etc.) within the configured time window, it gets banned
+                automatically. Banned IPs and per-event records are visible under{' '}
+                <strong>Security → Suspicious Activity</strong> and <strong>Security → IP Bans</strong>{' '}
+                — you can always un-ban an IP from there.
+              </div>
+            }
+          />
+
+          <SettingToggleRow row={{
+            name: 'auto_ban_enabled',
+            label: 'Enable Auto-Ban',
+            description: 'Master switch. When OFF, suspicious events are still logged but no IP is banned automatically.',
+            icon: <ThunderboltOutlined />,
+            type: 'switch',
+          }} />
+
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <div style={{ padding: '16px', border: '1px solid #303030', borderRadius: 8, marginBottom: 12, borderLeft: '3px solid #faad14', background: 'rgba(255,255,255,0.02)' }}>
+                <Text strong style={{ fontSize: 14 }}>Threshold</Text>
+                <div style={{ marginTop: 4, marginBottom: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Number of suspicious events from a single IP before banning.
+                  </Text>
+                </div>
+                <Form.Item name="auto_ban_threshold" style={{ margin: 0 }}>
+                  <InputNumber min={1} max={1000} style={{ width: '100%' }} addonAfter="events" placeholder="5" />
+                </Form.Item>
+              </div>
+            </Col>
+            <Col xs={24} sm={8}>
+              <div style={{ padding: '16px', border: '1px solid #303030', borderRadius: 8, marginBottom: 12, borderLeft: '3px solid #faad14', background: 'rgba(255,255,255,0.02)' }}>
+                <Text strong style={{ fontSize: 14 }}>Time Window</Text>
+                <div style={{ marginTop: 4, marginBottom: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Sliding window for counting suspicious events.
+                  </Text>
+                </div>
+                <Form.Item name="auto_ban_window_minutes" style={{ margin: 0 }}>
+                  <InputNumber min={1} max={1440} style={{ width: '100%' }} addonAfter="minutes" placeholder="10" />
+                </Form.Item>
+              </div>
+            </Col>
+            <Col xs={24} sm={8}>
+              <div style={{ padding: '16px', border: '1px solid #303030', borderRadius: 8, marginBottom: 12, borderLeft: '3px solid #ff4d4f', background: 'rgba(255,255,255,0.02)' }}>
+                <Text strong style={{ fontSize: 14 }}>Ban Duration</Text>
+                <div style={{ marginTop: 4, marginBottom: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    How long a ban lasts. Progressive grows on repeat offenders.
+                  </Text>
+                </div>
+                <Form.Item name="auto_ban_duration" style={{ margin: 0 }}>
+                  <Select style={{ width: '100%' }}
+                    options={[
+                      { value: '1h',          label: '1 hour' },
+                      { value: '24h',         label: '24 hours' },
+                      { value: 'permanent',   label: 'Permanent (until you remove it)' },
+                      { value: 'progressive', label: 'Progressive (1h → 24h → permanent)' },
+                    ]} />
+                </Form.Item>
+              </div>
+            </Col>
+          </Row>
+
+          <div style={{ padding: '16px', border: '1px solid #303030', borderRadius: 8, marginBottom: 12, borderLeft: '3px solid #1668dc', background: 'rgba(255,255,255,0.02)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ fontSize: 20, color: '#1668dc', marginTop: 2, minWidth: 24, textAlign: 'center' }}>
+                <FireOutlined />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Text strong style={{ fontSize: 14 }}>Firewall Mode</Text>
+                <div style={{ marginTop: 4, marginBottom: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Choose whether the auto-ban also pushes an iptables/ufw DROP rule onto the host firewall.
+                  </Text>
+                </div>
+                <Form.Item name="auto_ban_firewall_mode" style={{ margin: 0 }}>
+                  <Select style={{ width: '100%', maxWidth: 460 }}
+                    options={[
+                      { value: 'app_only',           label: 'App-level ban only (recommended)' },
+                      { value: 'app_and_firewall',   label: 'App + iptables DROP rule' },
+                      { value: 'firewall_only',      label: 'Only iptables DROP rule (skip app ban)' },
+                    ]} />
+                </Form.Item>
+              </div>
+            </div>
+          </div>
+
+          <Divider orientation="left" plain>
+            <Tag color="orange">Triggers</Tag>
+          </Divider>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
+            Decide which suspicious events count toward the threshold. Disabled events are still
+            logged in <strong>Suspicious Activity</strong>, they just don't cause auto-bans.
+          </Text>
+
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_bad_api_key',
+            label: 'Bad / missing API key',
+            description: 'Request to /api/* without X-API-Key header, or with an unknown/inactive key.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_bad_origin',
+            label: 'Disallowed Origin',
+            description: 'API key found, but the Origin header is not in its allowed-origins list.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_bad_ip',
+            label: 'Disallowed source IP',
+            description: 'API key found, but the client IP is not in the key\'s allowed-IPs list.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_rate_limit',
+            label: 'Rate-limit exceeded',
+            description: 'Hammering the API past 120 requests/minute is a strong flooding signal.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_bad_login',
+            label: 'Bad admin login',
+            description: 'Wrong username, password, or 2FA code on the admin panel.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_bad_token',
+            label: 'Bad DDNS token',
+            description: '/api/ddns/update or /nic/update called with an invalid token / basic-auth.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+          <SettingToggleRow row={{
+            name: 'auto_ban_trigger_bad_path',
+            label: 'Unknown / scanning paths',
+            description: 'Reserved for future use — currently a no-op until path-scan detection lands.',
+            icon: <StopOutlined />, type: 'switch',
+          }} />
+
           <div style={{ marginTop: 24 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={saved ? <CheckCircleOutlined /> : <SaveOutlined />}
-              loading={saveMut.isPending}
-              size="large"
-            >
-              {saved ? 'Saved!' : 'Save Security Settings'}
-            </Button>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={saved ? <CheckCircleOutlined /> : <SaveOutlined />}
+                loading={saveMut.isPending}
+                size="large"
+              >
+                {saved ? 'Saved!' : 'Save Security Settings'}
+              </Button>
+              <Button
+                size="large"
+                icon={<StopOutlined />}
+                onClick={() => navigate('/security/suspicious-activity')}
+              >
+                View Suspicious Activity →
+              </Button>
+            </Space>
           </div>
         </Form>
       </Card>

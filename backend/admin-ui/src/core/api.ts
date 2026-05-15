@@ -92,6 +92,13 @@ export const deleteIPBan = (id: number) => api.delete(`/ip-bans/${id}`)
 export const getLoginAttempts = (page?: number) => api.get('/login-attempts', { params: { page } })
 export const clearLoginAttempts = () => api.delete('/login-attempts')
 
+// Suspicious activity (auto-ban engine)
+export const getSuspiciousEvents = (params?: {
+  page?: number; per_page?: number;
+  ip?: string; event_type?: string; banned?: string;
+}) => api.get('/suspicious-events', { params })
+export const clearSuspiciousEvents = () => api.delete('/suspicious-events')
+
 // Server
 export const getServerStatus = () => api.get('/server/status')
 export const getServices = () => api.get('/server/services')

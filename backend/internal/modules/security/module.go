@@ -21,6 +21,9 @@ func (m *SecurityModule) Icon() string { return "SafetyOutlined" }
 func (m *SecurityModule) OnInit() error {
 	// Re-apply all saved firewall rules on startup
 	ApplyAllFirewallRules()
+	// Register auto-ban → firewall hooks (so core/autoban.go can call us
+	// without an import cycle).
+	core.RegisterFirewallHooks(AddAutoBanFirewallRule, RemoveAutoBanFirewallRule)
 	return nil
 }
 
@@ -35,6 +38,7 @@ func (m *SecurityModule) Permissions() []core.Permission {
 func (m *SecurityModule) MenuItems() []core.MenuItem {
 	return []core.MenuItem{
 		{Label: "IP Bans", Path: "/security/ip-bans", Icon: "StopOutlined", Permission: "security.view"},
+		{Label: "Suspicious Activity", Path: "/security/suspicious-activity", Icon: "WarningOutlined", Permission: "security.view"},
 		{Label: "Login Attempts", Path: "/security/login-attempts", Icon: "LoginOutlined", Permission: "security.view"},
 		{Label: "Firewall", Path: "/security/firewall", Icon: "FireOutlined", Permission: "security.firewall"},
 	}
@@ -50,6 +54,10 @@ func (m *SecurityModule) RegisterRoutes(r *gin.RouterGroup) {
 
 	r.GET("/login-attempts", core.RequirePermission("security.view"), m.handler.ListLoginAttempts)
 	r.DELETE("/login-attempts", core.RequireSuperAdmin(), m.handler.ClearLoginAttempts)
+
+	// Suspicious activity (auto-ban log)
+	r.GET("/suspicious-events", core.RequirePermission("security.view"), m.handler.ListSuspiciousEvents)
+	r.DELETE("/suspicious-events", core.RequireSuperAdmin(), m.handler.ClearSuspiciousEvents)
 
 	// Firewall management
 	fw := r.Group("/firewall")

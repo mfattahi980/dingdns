@@ -15,6 +15,7 @@ const APIUsage = lazy(() => import('./modules/apikeys/APIUsagePage'))
 const IPBans = lazy(() => import('./modules/security/IPBansPage'))
 const LoginAttempts = lazy(() => import('./modules/security/LoginAttemptsPage'))
 const Firewall = lazy(() => import('./modules/security/FirewallPage'))
+const SuspiciousActivity = lazy(() => import('./modules/security/SuspiciousActivityPage'))
 const ServerStatus = lazy(() => import('./modules/server/ServerStatusPage'))
 const ServerServices = lazy(() => import('./modules/server/ServicesPage'))
 const ServerLogs = lazy(() => import('./modules/server/LogsPage'))
@@ -78,6 +79,7 @@ const AppRouter: React.FC = () => {
             {/* Security */}
             <Route path="security/ip-bans" element={<IPBans />} />
             <Route path="security/login-attempts" element={<LoginAttempts />} />
+            <Route path="security/suspicious-activity" element={<SuspiciousActivity />} />
             <Route path="security/firewall" element={<Firewall />} />
 
             {/* Server */}

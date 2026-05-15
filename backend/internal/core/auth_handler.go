@@ -63,6 +63,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err := DB.Where("(username = ? OR email = ?) AND is_active = ?",
 		username, username, true).First(&admin).Error; err != nil {
 		RecordLoginAttempt(ip, username, userAgent, false)
+		RecordSuspiciousEvent(c, "bad_login", "unknown username="+username)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -95,6 +96,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if !admin.CheckPassword(req.Password) {
 		RecordLoginAttempt(ip, username, userAgent, false)
 		IncrementFailedAttempts(admin.ID)
+		RecordSuspiciousEvent(c, "bad_login", "wrong password username="+username)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -141,6 +143,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			if !validBackup {
 				RecordLoginAttempt(ip, username, userAgent, false)
 				IncrementFailedAttempts(admin.ID)
+				RecordSuspiciousEvent(c, "bad_login", "wrong 2FA code username="+username)
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid 2FA code"})
 				return
 			}

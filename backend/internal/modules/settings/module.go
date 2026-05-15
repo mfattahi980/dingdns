@@ -74,6 +74,19 @@ func getSettings(c *gin.Context) {
 		// API Usage Logging
 		"api_usage_log_enabled":        "true",
 		"api_usage_log_retention_days": "30",
+		// Auto-Ban (suspicious activity engine)
+		"auto_ban_enabled":              "true",
+		"auto_ban_threshold":            "5",
+		"auto_ban_window_minutes":       "10",
+		"auto_ban_duration":             "1h", // 1h | 24h | permanent | progressive
+		"auto_ban_firewall_mode":        "app_only", // app_only | app_and_firewall | firewall_only
+		"auto_ban_trigger_bad_api_key":  "true",
+		"auto_ban_trigger_bad_origin":   "true",
+		"auto_ban_trigger_bad_ip":       "true",
+		"auto_ban_trigger_rate_limit":   "true",
+		"auto_ban_trigger_bad_login":    "true",
+		"auto_ban_trigger_bad_token":    "true",
+		"auto_ban_trigger_bad_path":     "false",
 	}
 
 	var rows []models.Setting
@@ -110,6 +123,14 @@ func updateSettings(c *gin.Context) {
 		"ssl_auto_renew": true, "ssl_renew_days_before": true,
 		// API Usage Logging
 		"api_usage_log_enabled": true, "api_usage_log_retention_days": true,
+		// Auto-Ban engine
+		"auto_ban_enabled": true, "auto_ban_threshold": true,
+		"auto_ban_window_minutes": true, "auto_ban_duration": true,
+		"auto_ban_firewall_mode": true,
+		"auto_ban_trigger_bad_api_key": true, "auto_ban_trigger_bad_origin": true,
+		"auto_ban_trigger_bad_ip": true, "auto_ban_trigger_rate_limit": true,
+		"auto_ban_trigger_bad_login": true, "auto_ban_trigger_bad_token": true,
+		"auto_ban_trigger_bad_path": true,
 	}
 
 	for k, v := range req {

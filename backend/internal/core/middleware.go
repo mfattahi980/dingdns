@@ -251,6 +251,7 @@ func RateLimitMiddleware(rl *RateLimiter) gin.HandlerFunc {
 		rl.mu.Unlock()
 
 		if count > rl.limit {
+			RecordSuspiciousEvent(c, "rate_limit", fmt.Sprintf("rate %d/%s exceeded (count=%d)", rl.limit, rl.window, count))
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
 			c.Abort()
 			return

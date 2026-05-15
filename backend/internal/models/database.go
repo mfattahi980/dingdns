@@ -50,6 +50,7 @@ func InitDB(dbPath string) error {
 		&Setting{},
 		&IPBan{},
 		&LoginAttempt{},
+		&SuspiciousEvent{},
 		&APIKey{},
 		&FirewallRule{},
 		&APIUsageLog{},

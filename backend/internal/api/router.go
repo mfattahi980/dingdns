@@ -142,6 +142,7 @@ func APIKeyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
 		if apiKey == "" {
+			core.RecordSuspiciousEvent(c, "bad_api_key", "missing X-API-Key header")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "API key required"})
 			c.Abort()
 			return
@@ -149,6 +150,12 @@ func APIKeyMiddleware() gin.HandlerFunc {
 
 		var key models.APIKey
 		if err := models.DB.Where("key = ? AND is_active = ?", apiKey, true).First(&key).Error; err != nil {
+			// Don't echo the supplied key into the log — it could be huge / contain garbage.
+			preview := apiKey
+			if len(preview) > 24 {
+				preview = preview[:24] + "..."
+			}
+			core.RecordSuspiciousEvent(c, "bad_api_key", "invalid key: "+preview)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid API key"})
 			c.Abort()
 			return
@@ -166,6 +173,7 @@ func APIKeyMiddleware() gin.HandlerFunc {
 				}
 			}
 			if !allowed {
+				core.RecordSuspiciousEvent(c, "bad_origin", "origin="+origin+" key="+key.Name)
 				c.JSON(http.StatusForbidden, gin.H{"error": "origin not allowed"})
 				c.Abort()
 				return
@@ -176,6 +184,7 @@ func APIKeyMiddleware() gin.HandlerFunc {
 		if key.AllowedIPs != "" {
 			clientIP := core.GetRealIP(c)
 			if !ipInList(clientIP, key.AllowedIPs) {
+				core.RecordSuspiciousEvent(c, "bad_ip", "ip not in allowlist for key="+key.Name)
 				c.JSON(http.StatusForbidden, gin.H{"error": "IP not allowed"})
 				c.Abort()
 				return
@@ -272,6 +281,7 @@ func handleDDNSUpdate(c *gin.Context) {
 	if token != "" {
 		result, err := ddns.UpdateByToken(token, ip)
 		if err != nil {
+			core.RecordSuspiciousEvent(c, "bad_token", "ddns token rejected: "+err.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -290,6 +300,7 @@ func handleDDNSUpdate(c *gin.Context) {
 		// Use password as token
 		result, err := ddns.UpdateByToken(password, ip)
 		if err != nil {
+			core.RecordSuspiciousEvent(c, "bad_token", "ddns basic-auth rejected: "+err.Error())
 			c.String(http.StatusUnauthorized, "badauth")
 			return
 		}

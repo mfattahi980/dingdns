@@ -355,3 +355,49 @@ func hasSudoAccess(tool firewallTool) bool {
 	_, err := runCmd(tool.path, "--version")
 	return err == nil
 }
+
+// AddAutoBanFirewallRule is called by the auto-ban engine to push an
+// iptables DROP rule for an IP. Saves the rule in the DB (so it survives
+// restart) and tries to apply it live. Returns the FirewallRule.ID so
+// the IPBan row can reference it for later cleanup.
+func AddAutoBanFirewallRule(ip, reason string) (uint, bool) {
+	if strings.TrimSpace(ip) == "" {
+		return 0, false
+	}
+	rule := models.FirewallRule{
+		Chain:    "INPUT",
+		Action:   "DROP",
+		Protocol: "all",
+		SrcIP:    ip,
+		Comment:  "auto-ban: " + reason,
+		IsActive: true,
+	}
+	if err := models.DB.Create(&rule).Error; err != nil {
+		return 0, false
+	}
+	tool := detectFirewall()
+	if tool.toolType != "none" {
+		// best-effort: even if apply fails (no sudo), the rule is saved
+		// and will be re-applied on next start.
+		_ = applyRule(tool, "-I", rule)
+	}
+	return rule.ID, true
+}
+
+// RemoveAutoBanFirewallRule deletes a previously-added auto-ban firewall
+// rule (typically when the operator clears the corresponding IP ban).
+func RemoveAutoBanFirewallRule(ruleID uint) bool {
+	if ruleID == 0 {
+		return false
+	}
+	var rule models.FirewallRule
+	if err := models.DB.First(&rule, ruleID).Error; err != nil {
+		return false
+	}
+	tool := detectFirewall()
+	if tool.toolType != "none" {
+		_ = applyRule(tool, "-D", rule)
+	}
+	models.DB.Delete(&rule)
+	return true
+}
