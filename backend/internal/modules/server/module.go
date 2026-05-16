@@ -48,6 +48,7 @@ func (m *ServerModule) RegisterRoutes(r *gin.RouterGroup) {
 		srv.POST("/services/:name/start", core.RequirePermission("server.manage"), m.handler.StartService)
 		srv.POST("/services/:name/stop", core.RequirePermission("server.manage"), m.handler.StopService)
 		srv.POST("/services/:name/restart", core.RequirePermission("server.manage"), m.handler.RestartService)
+		srv.POST("/services/:name/install", core.RequirePermission("server.manage"), m.handler.InstallService)
 		srv.GET("/services/:name/logs", core.RequirePermission("server.view"), m.handler.GetServiceLogs)
 
 		// Logs

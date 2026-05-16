@@ -321,6 +321,26 @@ dingdns ALL=(root) NOPASSWD: ${SELF_UPDATE_DST}
 EOF
     chmod 440 /etc/sudoers.d/dingdns-update
 
+    # Install the service-install helper + sudoers entry so the admin panel's
+    # Services page can apt-get install a small allowlist of optional
+    # services (ufw, fail2ban, nginx, redis, …) without granting blanket
+    # apt-get NOPASSWD to the dingdns user. The script itself has an
+    # allowlist; sudoers locks it down to "only this exact path".
+    INSTALL_SVC_SRC="$(dirname "$0")/dingdns-install-service.sh"
+    INSTALL_SVC_DST="/usr/local/sbin/dingdns-install-service.sh"
+    if [ -f "${INSTALL_SVC_SRC}" ]; then
+        install -m 0755 -o root -g root "${INSTALL_SVC_SRC}" "${INSTALL_SVC_DST}"
+    else
+        curl -fsSL "https://raw.githubusercontent.com/mfattahi980/dingdns/main/installer/dingdns-install-service.sh" \
+            -o "${INSTALL_SVC_DST}" || error "Failed to fetch dingdns-install-service.sh"
+        chmod 0755 "${INSTALL_SVC_DST}"
+        chown root:root "${INSTALL_SVC_DST}"
+    fi
+    cat > /etc/sudoers.d/dingdns-install-services <<EOF
+dingdns ALL=(root) NOPASSWD: ${INSTALL_SVC_DST}
+EOF
+    chmod 440 /etc/sudoers.d/dingdns-install-services
+
     success "Directories ready"
 }
 

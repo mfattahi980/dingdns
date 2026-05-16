@@ -1,26 +1,28 @@
 import React, { useState } from 'react'
 import {
-  Card, Button, Tag, Typography, message, Popconfirm, Space, Badge, Modal,
-  Row, Col, Statistic, Tooltip, InputNumber, Divider,
+  App, Card, Button, Tag, Typography, Popconfirm, Space, Badge, Modal,
+  Row, Col, Statistic, Tooltip, InputNumber, Divider, Alert,
 } from 'antd'
 import {
   ReloadOutlined, PlayCircleOutlined, StopOutlined,
   FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined,
-  AppstoreOutlined,
+  AppstoreOutlined, DownloadOutlined, InfoCircleOutlined, MinusCircleOutlined,
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getServices, startService, stopService, restartService, getServiceLogs,
+  getServices, startService, stopService, restartService, installService, getServiceLogs,
 } from '../../core/api'
 
-const { Title, Text } = Typography
+const { Title, Text, Paragraph } = Typography
 
-const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; badge: 'success' | 'error' | 'warning' | 'processing' | 'default' }> = {
-  active:    { color: 'green',   icon: <CheckCircleOutlined />, badge: 'success' },
-  activating:{ color: 'blue',    icon: <SyncOutlined spin />,   badge: 'processing' },
-  inactive:  { color: 'default', icon: <CloseCircleOutlined />, badge: 'default' },
-  failed:    { color: 'red',     icon: <CloseCircleOutlined />, badge: 'error' },
-  unknown:   { color: 'orange',  icon: <CloseCircleOutlined />, badge: 'warning' },
+type AntdBadge = 'success' | 'error' | 'warning' | 'processing' | 'default'
+const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; badge: AntdBadge; label: string }> = {
+  active:           { color: 'green',   icon: <CheckCircleOutlined />, badge: 'success',    label: 'Active' },
+  activating:       { color: 'blue',    icon: <SyncOutlined spin />,   badge: 'processing', label: 'Activating' },
+  inactive:         { color: 'default', icon: <CloseCircleOutlined />, badge: 'default',    label: 'Inactive' },
+  failed:           { color: 'red',     icon: <CloseCircleOutlined />, badge: 'error',      label: 'Failed' },
+  unknown:          { color: 'orange',  icon: <CloseCircleOutlined />, badge: 'warning',    label: 'Unknown' },
+  'not-installed':  { color: 'default', icon: <MinusCircleOutlined />, badge: 'default',    label: 'Not installed' },
 }
 
 interface Service {
@@ -32,6 +34,11 @@ interface Service {
   since?: string
   memory_mb?: string
   pid?: string
+  installed?: boolean
+  installable?: boolean
+  enabled?: boolean
+  unit_file_state?: string
+  hint?: string
 }
 
 const LogsModal: React.FC<{ service: string; open: boolean; onClose: () => void }> = ({ service, open, onClose }) => {
@@ -112,7 +119,9 @@ const LogsModal: React.FC<{ service: string; open: boolean; onClose: () => void 
 
 const ServicesPage: React.FC = () => {
   const queryClient = useQueryClient()
+  const { message, modal } = App.useApp()
   const [logsService, setLogsService] = useState<string | null>(null)
+  const [installOutput, setInstallOutput] = useState<{ name: string; output: string } | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['services'],
@@ -149,8 +158,48 @@ const ServicesPage: React.FC = () => {
     onError: (e: any) => message.error(e.response?.data?.error || 'Failed to restart'),
   })
 
-  const activeCount = services.filter(s => s.active).length
-  const total = services.length
+  // Per-row install state — antd's useMutation alone would lose track of
+  // which row is installing when multiple rows are visible. We track the
+  // currently-installing service name and gate the spinner on that.
+  const [installingName, setInstallingName] = useState<string | null>(null)
+  const installMut = useMutation({
+    mutationFn: (name: string) => {
+      setInstallingName(name)
+      return installService(name)
+    },
+    onSuccess: (res, name) => {
+      setInstallingName(null)
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      message.success(`${name} installed`)
+      const output = res?.data?.output
+      if (output) setInstallOutput({ name, output })
+    },
+    onError: (e: any, name) => {
+      setInstallingName(null)
+      const data = e.response?.data
+      modal.error({
+        title: `Failed to install ${name}`,
+        content: (
+          <div>
+            <Paragraph>{data?.error || 'Install failed'}</Paragraph>
+            {data?.output && (
+              <pre style={{ background: '#0d1117', color: '#c9d1d9', padding: 12, borderRadius: 4, maxHeight: 320, overflow: 'auto', fontSize: 11 }}>
+                {data.output}
+              </pre>
+            )}
+          </div>
+        ),
+        width: 720,
+      })
+    },
+  })
+
+  // Headline counts use only "installed" services so the "not installed"
+  // rows don't deflate the active ratio.
+  const installedServices = services.filter(s => s.installed !== false)
+  const activeCount = installedServices.filter(s => s.active).length
+  const total = installedServices.length
+  const notInstalledCount = services.length - total
 
   return (
     <div>
@@ -159,6 +208,9 @@ const ServicesPage: React.FC = () => {
           <AppstoreOutlined style={{ fontSize: 22, color: '#1890ff' }} />
           <Title level={3} style={{ margin: 0 }}>Services</Title>
           <Tag color="blue">{activeCount}/{total} active</Tag>
+          {notInstalledCount > 0 && (
+            <Tag color="default">{notInstalledCount} not installed</Tag>
+          )}
         </div>
         <Button
           icon={<ReloadOutlined />}
@@ -172,6 +224,8 @@ const ServicesPage: React.FC = () => {
       <Row gutter={[16, 16]}>
         {services.map(svc => {
           const cfg = STATUS_CONFIG[svc.status] || STATUS_CONFIG.unknown
+          const notInstalled = svc.installed === false || svc.status === 'not-installed'
+          const isInstalling = installingName === svc.name
           const isPending =
             startMut.isPending || stopMut.isPending || restartMut.isPending
 
@@ -180,8 +234,14 @@ const ServicesPage: React.FC = () => {
               <Card
                 size="small"
                 style={{
-                  border: `1px solid ${svc.active ? '#177ddc33' : '#303030'}`,
-                  background: svc.active ? 'rgba(23, 125, 220, 0.05)' : undefined,
+                  border: `1px solid ${
+                    svc.active ? '#177ddc33' :
+                    notInstalled ? '#3a3a3a' :
+                    '#303030'
+                  }`,
+                  background: svc.active ? 'rgba(23, 125, 220, 0.05)' :
+                    notInstalled ? 'rgba(255, 255, 255, 0.02)' : undefined,
+                  opacity: notInstalled ? 0.85 : 1,
                 }}
                 title={
                   <Space>
@@ -191,8 +251,12 @@ const ServicesPage: React.FC = () => {
                 }
                 extra={
                   <Tag color={cfg.color} icon={cfg.icon} style={{ margin: 0, fontSize: 11 }}>
-                    {svc.status}
-                    {svc.sub_state && svc.sub_state !== svc.status ? ` (${svc.sub_state})` : ''}
+                    {notInstalled
+                      ? cfg.label
+                      : <>
+                          {cfg.label}
+                          {svc.sub_state && svc.sub_state !== svc.status ? ` (${svc.sub_state})` : ''}
+                        </>}
                   </Tag>
                 }
               >
@@ -202,86 +266,159 @@ const ServicesPage: React.FC = () => {
                   </Text>
                 )}
 
-                <Row gutter={8} style={{ marginBottom: 8 }}>
-                  {svc.memory_mb && (
-                    <Col span={12}>
-                      <Statistic
-                        title={<span style={{ fontSize: 10 }}>Memory</span>}
-                        value={svc.memory_mb}
-                        suffix="MB"
-                        valueStyle={{ fontSize: 13 }}
-                      />
-                    </Col>
-                  )}
-                  {svc.pid && svc.pid !== '0' && (
-                    <Col span={12}>
-                      <Statistic
-                        title={<span style={{ fontSize: 10 }}>PID</span>}
-                        value={svc.pid}
-                        valueStyle={{ fontSize: 13 }}
-                      />
-                    </Col>
-                  )}
-                </Row>
+                {svc.hint && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    icon={<InfoCircleOutlined />}
+                    message={<span style={{ fontSize: 11 }}>{svc.hint}</span>}
+                    style={{ marginBottom: 8, padding: '4px 8px' }}
+                  />
+                )}
 
-                {svc.since && (
-                  <Text type="secondary" style={{ fontSize: 10, display: 'block', marginBottom: 8 }}>
-                    Since: {svc.since}
-                  </Text>
+                {!notInstalled && (
+                  <>
+                    {svc.unit_file_state && svc.unit_file_state !== 'enabled' && (
+                      <Tag color="orange" style={{ fontSize: 10, marginBottom: 8 }}>
+                        unit-file: {svc.unit_file_state}
+                      </Tag>
+                    )}
+                    <Row gutter={8} style={{ marginBottom: 8 }}>
+                      {svc.memory_mb && (
+                        <Col span={12}>
+                          <Statistic
+                            title={<span style={{ fontSize: 10 }}>Memory</span>}
+                            value={svc.memory_mb}
+                            suffix="MB"
+                            valueStyle={{ fontSize: 13 }}
+                          />
+                        </Col>
+                      )}
+                      {svc.pid && svc.pid !== '0' && (
+                        <Col span={12}>
+                          <Statistic
+                            title={<span style={{ fontSize: 10 }}>PID</span>}
+                            value={svc.pid}
+                            valueStyle={{ fontSize: 13 }}
+                          />
+                        </Col>
+                      )}
+                    </Row>
+                    {svc.since && (
+                      <Text type="secondary" style={{ fontSize: 10, display: 'block', marginBottom: 8 }}>
+                        Since: {svc.since}
+                      </Text>
+                    )}
+                  </>
                 )}
 
                 <Divider style={{ margin: '8px 0' }} />
 
                 <Space size={4} wrap>
-                  {!svc.active && (
-                    <Tooltip title="Start">
-                      <Button
-                        size="small" type="primary" ghost
-                        icon={<PlayCircleOutlined />}
-                        onClick={() => startMut.mutate(svc.name)}
-                        loading={isPending}
-                      >
-                        Start
-                      </Button>
-                    </Tooltip>
-                  )}
-                  {svc.active && svc.name !== 'dingdns' && (
-                    <Tooltip title="Stop">
+                  {notInstalled ? (
+                    svc.installable ? (
                       <Popconfirm
-                        title={`Stop ${svc.name}?`}
-                        onConfirm={() => stopMut.mutate(svc.name)}
+                        title={`Install ${svc.name}?`}
+                        description="This will run apt-get install and enable the service. May take 10–30 seconds."
+                        onConfirm={() => installMut.mutate(svc.name)}
                       >
-                        <Button size="small" danger icon={<StopOutlined />} loading={isPending}>
-                          Stop
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<DownloadOutlined />}
+                          loading={isInstalling}
+                        >
+                          Install
                         </Button>
                       </Popconfirm>
-                    </Tooltip>
+                    ) : (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        Not installed (cannot install from panel)
+                      </Text>
+                    )
+                  ) : (
+                    <>
+                      {!svc.active && (
+                        <Tooltip title="Start">
+                          <Button
+                            size="small" type="primary" ghost
+                            icon={<PlayCircleOutlined />}
+                            onClick={() => startMut.mutate(svc.name)}
+                            loading={isPending}
+                          >
+                            Start
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {svc.active && svc.name !== 'dingdns' && (
+                        <Tooltip title="Stop">
+                          <Popconfirm
+                            title={`Stop ${svc.name}?`}
+                            onConfirm={() => stopMut.mutate(svc.name)}
+                          >
+                            <Button size="small" danger icon={<StopOutlined />} loading={isPending}>
+                              Stop
+                            </Button>
+                          </Popconfirm>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Restart">
+                        <Popconfirm
+                          title={`Restart ${svc.name}?`}
+                          onConfirm={() => restartMut.mutate(svc.name)}
+                        >
+                          <Button size="small" icon={<ReloadOutlined />} loading={isPending}>
+                            Restart
+                          </Button>
+                        </Popconfirm>
+                      </Tooltip>
+                      <Tooltip title="View logs">
+                        <Button
+                          size="small"
+                          icon={<FileTextOutlined />}
+                          onClick={() => setLogsService(svc.name)}
+                        >
+                          Logs
+                        </Button>
+                      </Tooltip>
+                    </>
                   )}
-                  <Tooltip title="Restart">
-                    <Popconfirm
-                      title={`Restart ${svc.name}?`}
-                      onConfirm={() => restartMut.mutate(svc.name)}
-                    >
-                      <Button size="small" icon={<ReloadOutlined />} loading={isPending}>
-                        Restart
-                      </Button>
-                    </Popconfirm>
-                  </Tooltip>
-                  <Tooltip title="View logs">
-                    <Button
-                      size="small"
-                      icon={<FileTextOutlined />}
-                      onClick={() => setLogsService(svc.name)}
-                    >
-                      Logs
-                    </Button>
-                  </Tooltip>
                 </Space>
               </Card>
             </Col>
           )
         })}
       </Row>
+
+      {/* Install output modal — shown after a successful install with apt output */}
+      <Modal
+        open={!!installOutput}
+        onCancel={() => setInstallOutput(null)}
+        onOk={() => setInstallOutput(null)}
+        cancelButtonProps={{ style: { display: 'none' } }}
+        okText="Close"
+        width={780}
+        title={
+          installOutput
+            ? <Space><CheckCircleOutlined style={{ color: '#52c41a' }} />Installed {installOutput.name}</Space>
+            : 'Install output'
+        }
+      >
+        {installOutput && (
+          <pre style={{
+            background: '#0d1117',
+            color: '#c9d1d9',
+            padding: 12,
+            borderRadius: 4,
+            maxHeight: 420,
+            overflow: 'auto',
+            fontSize: 11,
+            lineHeight: 1.5,
+          }}>
+            {installOutput.output}
+          </pre>
+        )}
+      </Modal>
 
       {logsService && (
         <LogsModal

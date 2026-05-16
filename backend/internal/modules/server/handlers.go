@@ -52,6 +52,14 @@ var allowedServices = map[string]bool{
 	"postgresql": true, "redis": true, "fail2ban": true, "ufw": true,
 }
 
+// installableServices maps service names that the panel can install via
+// /usr/local/sbin/dingdns-install-service.sh — kept narrow on purpose so
+// the panel can't apt-get arbitrary packages.
+var installableServices = map[string]bool{
+	"ufw": true, "fail2ban": true, "nginx": true, "apache2": true,
+	"redis": true,
+}
+
 // ──────────────────────────────────────────────
 // Status
 // ──────────────────────────────────────────────
@@ -167,6 +175,51 @@ func (h *Handler) GetServiceLogs(c *gin.Context) {
 		"output":  out,
 		"lines":   lineSlice,
 		"service": name,
+	})
+}
+
+// InstallService installs a not-yet-installed service via the
+// /usr/local/sbin/dingdns-install-service.sh helper. The helper has a
+// hardcoded package allowlist and is granted NOPASSWD sudo by
+// installer/install.sh — keep the allowlist here in sync with the one
+// inside the helper.
+//
+// This is intentionally synchronous: apt-get install of UFW / fail2ban /
+// redis is fast (~10–30s), and a sync request gives the panel a clean
+// success/error to surface without polling. If a future service has a
+// much longer install we should switch to a job tracker like the update
+// flow uses.
+func (h *Handler) InstallService(c *gin.Context) {
+	name := c.Param("name")
+	if !installableServices[name] {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "service is not in the installable allowlist",
+		})
+		return
+	}
+
+	const helperPath = "/usr/local/sbin/dingdns-install-service.sh"
+	if _, err := os.Stat(helperPath); os.IsNotExist(err) {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "install helper missing at " + helperPath +
+				". Re-run installer/install.sh to install it (or use the Update Now button).",
+		})
+		return
+	}
+
+	cmd := exec.Command("sudo", "-n", helperPath, name)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":  fmt.Sprintf("install failed: %v", err),
+			"output": string(out),
+		})
+		return
+	}
+	logAction(c, "install_service", "service", nil, name)
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("%s installed", name),
+		"output":  string(out),
 	})
 }
 
@@ -708,17 +761,71 @@ func runMigrationJob(job *MigrationJob, engine, host string, port int, db, user,
 // System helpers
 // ──────────────────────────────────────────────
 
+// firewallHint returns a non-empty string when this row should display a
+// soft hint instead of being interpreted as a hard failure. UFW being
+// inactive is normal on systems that drive iptables directly (which is
+// exactly what install.sh sets up via the dingdns-firewall sudoers entry),
+// so we should not draw it as a red "dead" service in that case.
+func firewallHint(name string, installed bool, active bool) string {
+	if name != "ufw" || active {
+		return ""
+	}
+	// Try to count iptables INPUT rules — if there are any, the firewall is
+	// configured and UFW being inactive is fine.
+	out, err := exec.Command("sh", "-c",
+		"command -v iptables >/dev/null 2>&1 && iptables -S INPUT 2>/dev/null | wc -l",
+	).Output()
+	if err == nil {
+		if n, _ := strconv.Atoi(strings.TrimSpace(string(out))); n > 1 {
+			if !installed {
+				return fmt.Sprintf("UFW not installed — but iptables has %d INPUT rule(s) so the firewall is still active.", n-1)
+			}
+			return fmt.Sprintf("UFW inactive — but iptables has %d INPUT rule(s) so the firewall is still active.", n-1)
+		}
+	}
+	if !installed {
+		return "UFW not installed. Click Install to add it, or rely on iptables (none configured currently)."
+	}
+	return "UFW inactive. Click Start to enable it, or rely on iptables instead."
+}
+
 func getServiceDetail(name string) map[string]interface{} {
-	// Check if the unit exists
+	// Check if the unit exists. If not, return a "not-installed" stub so
+	// the panel can render it differently (with an Install button) instead
+	// of silently hiding the row — the previous behaviour was confusing
+	// because UFW being "dead" vs being "absent" looked identical from
+	// the user's perspective.
 	checkCmd := exec.Command("systemctl", "cat", name)
 	if err := checkCmd.Run(); err != nil {
-		return nil
+		// Only expose this stub for services we know how to install. For
+		// everything else, keep the historical behaviour of hiding the row
+		// so the panel doesn't fill up with noise on minimal systems.
+		if !installableServices[name] {
+			return nil
+		}
+		result := map[string]interface{}{
+			"name":        name,
+			"status":      "not-installed",
+			"sub_state":   "",
+			"active":      false,
+			"installed":   false,
+			"installable": true,
+			"load_state":  "not-found",
+		}
+		if hint := firewallHint(name, false, false); hint != "" {
+			result["hint"] = hint
+		}
+		return result
 	}
 
-	result := map[string]interface{}{"name": name}
+	result := map[string]interface{}{
+		"name":        name,
+		"installed":   true,
+		"installable": installableServices[name],
+	}
 
 	cmd := exec.Command("systemctl", "show", name,
-		"--property=ActiveState,SubState,LoadState,Description,ActiveEnterTimestamp,MemoryCurrent,MainPID",
+		"--property=ActiveState,SubState,LoadState,Description,ActiveEnterTimestamp,MemoryCurrent,MainPID,UnitFileState",
 		"--no-pager")
 	out, err := cmd.Output()
 	if err != nil {
@@ -737,6 +844,13 @@ func getServiceDetail(name string) map[string]interface{} {
 	result["load_state"] = props["LoadState"]
 	result["description"] = props["Description"]
 	result["pid"] = props["MainPID"]
+	// UnitFileState is "enabled" / "disabled" / "static" / "masked" / ""
+	// — exposing it lets the UI distinguish "installed but disabled on
+	// boot" from "installed and enabled but stopped".
+	if ufs := props["UnitFileState"]; ufs != "" {
+		result["enabled"] = ufs == "enabled" || ufs == "enabled-runtime"
+		result["unit_file_state"] = ufs
+	}
 
 	if ts := props["ActiveEnterTimestamp"]; ts != "" && ts != "n/a" {
 		result["since"] = ts
@@ -746,6 +860,10 @@ func getServiceDetail(name string) map[string]interface{} {
 			result["memory_bytes"] = bytes
 			result["memory_mb"] = fmt.Sprintf("%.1f", float64(bytes)/1024/1024)
 		}
+	}
+
+	if hint := firewallHint(name, true, activeState == "active"); hint != "" {
+		result["hint"] = hint
 	}
 
 	return result
