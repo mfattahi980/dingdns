@@ -124,6 +124,8 @@ export const getMigrationJob = (id: string) => api.get(`/server/db-migrate/${id}
 // System Updates
 export const getUpdateInfo = () => api.get('/server/update/info')
 export const triggerUpdate = () => api.post('/server/update')
+export const getUpdateJob = (id: string, offset?: number) =>
+  api.get(`/server/update/job/${id}`, { params: { offset } })
 
 // Email
 export const getEmailSettings = () => api.get('/email/settings')

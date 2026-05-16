@@ -76,5 +76,6 @@ func (m *ServerModule) RegisterRoutes(r *gin.RouterGroup) {
 		// System updates (check GitHub for new commits + trigger installer --update)
 		srv.GET("/update/info", core.RequirePermission("server.view"), m.handler.GetVersionInfo)
 		srv.POST("/update", core.RequirePermission("server.manage"), m.handler.TriggerUpdate)
+		srv.GET("/update/job/:id", core.RequirePermission("server.view"), m.handler.GetUpdateJob)
 	}
 }
