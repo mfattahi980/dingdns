@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Key, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { Key, Plus, Trash2 } from 'lucide-react'
 import { getDDNSTokens, createDDNSToken, deleteDDNSToken, getZones } from '../../lib/api'
 import Modal from '../../components/Modal'
+import CopyButton from '../../components/CopyButton'
 
 export default function DDNS() {
   const [tokens, setTokens] = useState<any[]>([])
@@ -10,7 +11,6 @@ export default function DDNS() {
   const [showCreate, setShowCreate] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(0)
   const [label, setLabel] = useState('')
-  const [copiedId, setCopiedId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   const loadData = async () => {
@@ -53,12 +53,6 @@ export default function DDNS() {
     } catch (err) {
       console.error('Failed to delete token', err)
     }
-  }
-
-  const copyToken = (id: number, token: string) => {
-    navigator.clipboard.writeText(token)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
   }
 
   // Get all A/AAAA records from all zones for DDNS
@@ -117,13 +111,7 @@ export default function DDNS() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => copyToken(token.id, token.token)}
-                    className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50"
-                    title="Copy token"
-                  >
-                    {copiedId === token.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  </button>
+                  <CopyButton text={token.token} title="Copy token" />
                   <button
                     onClick={() => handleDelete(token.id)}
                     className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"

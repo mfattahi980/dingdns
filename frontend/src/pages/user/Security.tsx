@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Shield, Plus, Trash2, ShieldCheck, ShieldOff, Copy, Monitor, X } from 'lucide-react'
+import { Shield, Plus, Trash2, ShieldCheck, ShieldOff, Monitor, X } from 'lucide-react'
 import {
   getSecurityStatus, getIPAllowlist, addIPAllowlist, deleteIPAllowlist,
   toggleIPRestriction, setup2FA, verify2FA, disable2FA, getSessions, revokeSession
 } from '../../lib/api'
 import Modal from '../../components/Modal'
+import CopyButton from '../../components/CopyButton'
 
 export default function Security() {
   const [status, setStatus] = useState({ two_factor_enabled: false, ip_restricted: false })
@@ -121,10 +122,6 @@ export default function Security() {
     } catch { setError('Failed to revoke session') }
   }
 
-  const copyText = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setSuccess('Copied to clipboard')
-  }
 
   if (loading) return <div className="flex justify-center py-12 text-gray-500">Loading...</div>
 
@@ -284,9 +281,7 @@ export default function Security() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Or enter manually:</label>
             <div className="flex items-center gap-2">
               <code className="flex-1 p-2 bg-gray-100 rounded text-sm font-mono break-all">{totpSecret}</code>
-              <button onClick={() => copyText(totpSecret)} className="p-2 text-gray-400 hover:text-gray-600">
-                <Copy className="w-4 h-4" />
-              </button>
+              <CopyButton text={totpSecret} title="Copy secret" />
             </div>
           </div>
           <div>
@@ -321,15 +316,12 @@ export default function Security() {
               <code key={i} className="p-2 bg-gray-100 rounded text-center font-mono text-sm">{code}</code>
             ))}
           </div>
-          <button
-            onClick={() => {
-              copyText(backupCodes.join('\n'))
-              setShowBackupCodes(false)
-            }}
-            className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
-          >
-            <Copy className="w-4 h-4" /> Copy All & Close
-          </button>
+          <CopyButton
+            text={backupCodes.join('\n')}
+            label="Copy All & Close"
+            title="Copy backup codes"
+            onCopied={() => setTimeout(() => setShowBackupCodes(false), 600)}
+          />
         </div>
       </Modal>
 
