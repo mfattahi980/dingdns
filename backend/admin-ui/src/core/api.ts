@@ -147,7 +147,13 @@ export const deleteAdmin = (id: number) => api.delete(`/admins/${id}`)
 export const getPermissions = () => api.get('/admins/permissions')
 
 // API Usage
-export const getAPIUsageLogs = (params?: { page?: number; api_key_id?: string; method?: string; status_code?: string }) =>
+export const getAPIUsageLogs = (params?: {
+  page?: number
+  per_page?: number
+  api_key_id?: string
+  method?: string
+  status_code?: string
+}) =>
   api.get('/api-usage', { params })
 export const getAPIUsageStats = (hours?: number) => api.get('/api-usage/stats', { params: { hours } })
 export const clearAPIUsageLogs = () => api.delete('/api-usage')

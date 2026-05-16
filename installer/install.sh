@@ -300,6 +300,27 @@ dingdns ALL=(root) NOPASSWD: ${JOURNALCTL_PATH}
 EOF
     chmod 440 /etc/sudoers.d/dingdns-services
 
+    # Install the self-update helper script + sudoers entry so the admin
+    # panel's "Update Now" button works. Without this, dingdns service user
+    # can't escalate to run the installer and the job silently no-ops
+    # ("Updating..." with empty log forever).
+    SELF_UPDATE_SRC="$(dirname "$0")/dingdns-self-update.sh"
+    SELF_UPDATE_DST="/usr/local/sbin/dingdns-self-update.sh"
+    if [ -f "${SELF_UPDATE_SRC}" ]; then
+        install -m 0755 -o root -g root "${SELF_UPDATE_SRC}" "${SELF_UPDATE_DST}"
+    else
+        # Source not present (running from a stripped tarball). Fetch it from
+        # the repo so install.sh can still be a one-shot bootstrap.
+        curl -fsSL "https://raw.githubusercontent.com/mfattahi980/dingdns/main/installer/dingdns-self-update.sh" \
+            -o "${SELF_UPDATE_DST}" || error "Failed to fetch dingdns-self-update.sh"
+        chmod 0755 "${SELF_UPDATE_DST}"
+        chown root:root "${SELF_UPDATE_DST}"
+    fi
+    cat > /etc/sudoers.d/dingdns-update <<EOF
+dingdns ALL=(root) NOPASSWD: ${SELF_UPDATE_DST}
+EOF
+    chmod 440 /etc/sudoers.d/dingdns-update
+
     success "Directories ready"
 }
 

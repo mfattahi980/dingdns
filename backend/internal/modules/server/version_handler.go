@@ -392,25 +392,28 @@ func (h *Handler) TriggerUpdate(c *gin.Context) {
 		return
 	}
 
-	// Build the wrapper script.  We use `script` if available so colors etc.
-	// behave; otherwise plain bash. Exit code is recorded in the END marker
-	// so the parser can detect success/failure even after this binary dies.
-	wrapper := fmt.Sprintf(`
-set +e
-LOG=%s
-{
-  echo "=== START $(date -Iseconds) id=%s ==="
-  curl -sSL https://raw.githubusercontent.com/%s/%s/%s/installer/install.sh | bash -s -- --update
-  RC=$?
-  echo "=== END $(date -Iseconds) exit=$RC ==="
-} >> "$LOG" 2>&1
-`, updateLogFile, id, updateRepoOwner, updateRepoName, updateBranch)
+	// Run the self-update helper through sudo. The helper script is
+	// installed by installer/install.sh at /usr/local/sbin/dingdns-self-update.sh
+	// and the dingdns service user has a NOPASSWD sudoers entry for exactly
+	// that path. Running `sudo bash -c …` directly fails because bash isn't
+	// in the sudoers allowlist (and inlining the wrapper here would make it
+	// impossible to audit the script that's actually allowed to run as root).
+	//
+	// The helper handles START/END markers, log truncation, and exit-code
+	// recording itself — version_handler.go just needs to launch it
+	// detached and immediately return the job_id.
+	const helperPath = "/usr/local/sbin/dingdns-self-update.sh"
 
-	// nohup detaches us from the dingdns process so the installer survives
-	// the systemctl restart. We need sudo because the installer touches
-	// /opt/dingdns, /usr/local/bin/dingdns, systemctl, etc.
-	cmd := exec.Command("sudo", "-n", "nohup", "bash", "-c", wrapper)
-	// Detach stdio — wrapper redirects everything to the log file itself.
+	if _, statErr := os.Stat(helperPath); os.IsNotExist(statErr) {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "self-update helper missing at " + helperPath +
+				". Re-run installer/install.sh to install it, then retry.",
+		})
+		return
+	}
+
+	cmd := exec.Command("sudo", "-n", helperPath, id, updateLogFile)
+	// Detach stdio — the helper writes everything into updateLogFile.
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
@@ -420,7 +423,11 @@ LOG=%s
 		})
 		return
 	}
-	// Don't wait for it — we want fire-and-forget. cmd.Wait() would block.
+	// Fire-and-forget. The helper survives our systemctl restart because
+	// systemd marks our cgroup as `KillMode=control-group` by default — but
+	// `sudo` re-parents the helper into init, so when dingdns exits the
+	// helper keeps running. cmd.Wait() in a goroutine just reaps the zombie
+	// if we happen to still be alive when it finishes.
 	go func() { _ = cmd.Wait() }()
 
 	c.JSON(http.StatusOK, gin.H{
