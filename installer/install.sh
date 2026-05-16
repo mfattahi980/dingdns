@@ -348,6 +348,22 @@ EOF
 # Build from source
 # ============================================================
 
+# ensure_build_env makes sure HOME and Go's module-cache vars are set
+# before we shell out to npm/go. When update() is invoked from a
+# systemd-run --no-block transient unit (the new self-update path),
+# the unit's environment is the systemd minimal env — no HOME, no
+# GOPATH — and `go mod tidy` then dies with
+#     go: module cache not found: neither GOMODCACHE nor GOPATH is set
+# Setting these unconditionally here makes build_frontend / build_backend
+# robust to every invocation path (panel, manual SSH, systemd-run).
+ensure_build_env() {
+    export HOME="${HOME:-/root}"
+    export GOPATH="${GOPATH:-${HOME}/go}"
+    export GOMODCACHE="${GOMODCACHE:-${GOPATH}/pkg/mod}"
+    # npm uses HOME for its cache (~/.npm) too — same fix applies.
+    mkdir -p "${HOME}" "${GOPATH}" "${GOMODCACHE}" 2>/dev/null || true
+}
+
 # Locates backend source and copies it to BUILD_DIR/backend
 _get_source() {
     local BUILD_DIR="$1"
@@ -365,6 +381,7 @@ _get_source() {
 
 build_frontend() {
     info "Building admin UI (frontend)..."
+    ensure_build_env
     BUILD_DIR=$(mktemp -d)
     _get_source "${BUILD_DIR}"
 
@@ -394,6 +411,7 @@ build_frontend() {
 
 build_backend() {
     info "Building backend (Go binary)..."
+    ensure_build_env
 
     # Reuse the same BUILD_DIR that build_frontend prepared (frontend already compiled into it)
     if [ -f /tmp/dingdns_build_dir ]; then
