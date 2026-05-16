@@ -18,11 +18,20 @@
 # Run via:
 #   sudo -n /usr/local/sbin/dingdns-self-update.sh <job_id> [<log_path>]
 #
-# This script intentionally does NOT exec the installer directly; it wraps it
-# with START/END markers so the parser in version_handler.go can detect job
-# completion (the exit code is recorded inside the END marker — that's how the
-# parser knows the update is done even after the systemd restart that the
-# installer triggers mid-flight).
+# ─── Why we re-exec into systemd-run ───────────────────────────────────────
+# When the admin panel calls us, the chain is:
+#     dingdns.service (cgroup) → sudo → bash (this script) → install.sh
+# install.sh runs `systemctl stop dingdns` before rebuilding. systemd's
+# default KillMode=control-group then kills the ENTIRE dingdns.service
+# cgroup — including this script and install.sh — so the update silently
+# dies mid-flight and the service stays stopped. Re-execing inside a
+# transient unit attached to system.slice puts us outside dingdns's cgroup,
+# so we survive the restart and can finish the update + start dingdns back
+# up.
+#
+# When invoked manually from SSH (not from the panel), the parent cgroup is
+# already system.slice / user.slice, so the re-exec is harmless. We still
+# do it for consistency.
 
 set -u
 
@@ -33,10 +42,27 @@ REPO_BRANCH="${DINGDNS_UPDATE_BRANCH:-main}"
 JOB_ID="${1:-unknown}"
 LOG_FILE="${2:-/var/log/dingdns/update-current.log}"
 
-# Make sure the log dir exists with sane perms (the service user appends to
-# the file as it polls). The installer itself is invoked as root so we don't
-# need to worry about ownership for the actual write.
 mkdir -p "$(dirname "$LOG_FILE")"
+
+# ─── Detach into a transient systemd unit on first invocation ──────────────
+# DINGDNS_UPDATE_DETACHED=1 is set by us before re-exec so the second
+# invocation inside the unit skips this branch and runs the real work.
+if [ -z "${DINGDNS_UPDATE_DETACHED:-}" ] && command -v systemd-run >/dev/null 2>&1; then
+    export DINGDNS_UPDATE_DETACHED=1
+    # --no-block: return immediately after dispatch (so dingdns can clean
+    #             up the original cmd.Wait() promptly).
+    # --collect:  GC the unit automatically after it finishes.
+    # --slice=system.slice + --unit=… : run in system.slice, not
+    #             dingdns.service's cgroup, so we survive the restart.
+    exec systemd-run \
+        --quiet \
+        --no-block \
+        --collect \
+        --slice=system.slice \
+        --unit="dingdns-update-${JOB_ID}.service" \
+        --setenv=DINGDNS_UPDATE_DETACHED=1 \
+        "$0" "$JOB_ID" "$LOG_FILE"
+fi
 
 # Truncate the log so each run starts clean — the Go side writes a fresh
 # meta file before invoking us, so any pre-existing content would be from

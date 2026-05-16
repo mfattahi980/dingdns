@@ -676,6 +676,15 @@ update() {
     install_dependencies
     install_go
     install_node
+    # Re-run setup_directories so newly-shipped helper scripts (e.g.
+    # dingdns-self-update.sh, dingdns-install-service.sh) and their
+    # sudoers files get installed/updated. The function is idempotent —
+    # it `useradd`s only if missing, mkdir -p's directories, and
+    # overwrites the sudoers/helper files with the latest versions.
+    # Without this, a freshly-shipped helper would never reach existing
+    # installs because update() previously jumped straight from
+    # install_node to build_frontend.
+    setup_directories
     systemctl stop ${SERVICE_NAME} 2>/dev/null || true
     build_frontend
     build_backend
