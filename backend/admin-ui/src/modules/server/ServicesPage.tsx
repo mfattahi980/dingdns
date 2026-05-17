@@ -39,6 +39,9 @@ interface Service {
   enabled?: boolean
   unit_file_state?: string
   hint?: string
+  // synthetic rows are aggregated status indicators (e.g. "firewall")
+  // that aren't real systemd units — no start/stop/logs buttons apply.
+  synthetic?: boolean
 }
 
 const LogsModal: React.FC<{ service: string; open: boolean; onClose: () => void }> = ({ service, open, onClose }) => {
@@ -194,12 +197,14 @@ const ServicesPage: React.FC = () => {
     },
   })
 
-  // Headline counts use only "installed" services so the "not installed"
-  // rows don't deflate the active ratio.
-  const installedServices = services.filter(s => s.installed !== false)
+  // Headline counts ignore synthetic rows (aggregated indicators like the
+  // "firewall" row aren't real services) and "not installed" rows so the
+  // X/Y active ratio matches user intuition.
+  const realServices = services.filter(s => !s.synthetic)
+  const installedServices = realServices.filter(s => s.installed !== false)
   const activeCount = installedServices.filter(s => s.active).length
   const total = installedServices.length
-  const notInstalledCount = services.length - total
+  const notInstalledCount = realServices.length - total
 
   return (
     <div>
@@ -226,6 +231,7 @@ const ServicesPage: React.FC = () => {
           const cfg = STATUS_CONFIG[svc.status] || STATUS_CONFIG.unknown
           const notInstalled = svc.installed === false || svc.status === 'not-installed'
           const isInstalling = installingName === svc.name
+          const isSynthetic = svc.synthetic === true
           const isPending =
             startMut.isPending || stopMut.isPending || restartMut.isPending
 
@@ -315,7 +321,11 @@ const ServicesPage: React.FC = () => {
                 <Divider style={{ margin: '8px 0' }} />
 
                 <Space size={4} wrap>
-                  {notInstalled ? (
+                  {isSynthetic ? (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      Aggregated status — manage rules under Security → Firewall
+                    </Text>
+                  ) : notInstalled ? (
                     svc.installable ? (
                       <Popconfirm
                         title={`Install ${svc.name}?`}

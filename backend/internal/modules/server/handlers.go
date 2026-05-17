@@ -93,6 +93,10 @@ func (h *Handler) GetStatus(c *gin.Context) {
 
 func (h *Handler) GetServices(c *gin.Context) {
 	var services []map[string]interface{}
+	// Synthetic "firewall" row first — gives users a single yes/no answer
+	// without having to puzzle out "UFW is dead but I have iptables rules,
+	// am I protected?".
+	services = append(services, synthesizeFirewallStatus())
 	for _, svc := range watchedServices {
 		info := getServiceDetail(svc)
 		if info != nil {
@@ -761,6 +765,38 @@ func runMigrationJob(job *MigrationJob, engine, host string, port int, db, user,
 // System helpers
 // ──────────────────────────────────────────────
 
+// countIPTablesInputRules returns the number of user-defined rules in the
+// INPUT chain (i.e. excluding the implicit policy line). 0 means either
+// no rules OR detection failed; caller must distinguish via the second
+// return value (true=detection worked).
+//
+// iptables(8) needs root, but the dingdns service user has a NOPASSWD
+// sudoers entry for /usr/sbin/iptables, so we go through runSudo here.
+// Without that, this used to silently return 0 and our hint message
+// would incorrectly say "no firewall" on systems that actually had a
+// fully-configured iptables firewall.
+func countIPTablesInputRules() (n int, ok bool) {
+	for _, p := range []string{"/usr/sbin/iptables", "/sbin/iptables", "/usr/bin/iptables"} {
+		if _, err := os.Stat(p); err != nil {
+			continue
+		}
+		out, err := runSudo(p, "-S", "INPUT")
+		if err != nil {
+			continue
+		}
+		// `iptables -S INPUT` prints one `-P INPUT …` policy line followed
+		// by one `-A INPUT …` line per user rule. Subtract the policy.
+		var rules int
+		for _, line := range strings.Split(out, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "-A INPUT") {
+				rules++
+			}
+		}
+		return rules, true
+	}
+	return 0, false
+}
+
 // firewallHint returns a non-empty string when this row should display a
 // soft hint instead of being interpreted as a hard failure. UFW being
 // inactive is normal on systems that drive iptables directly (which is
@@ -770,23 +806,61 @@ func firewallHint(name string, installed bool, active bool) string {
 	if name != "ufw" || active {
 		return ""
 	}
-	// Try to count iptables INPUT rules — if there are any, the firewall is
-	// configured and UFW being inactive is fine.
-	out, err := exec.Command("sh", "-c",
-		"command -v iptables >/dev/null 2>&1 && iptables -S INPUT 2>/dev/null | wc -l",
-	).Output()
-	if err == nil {
-		if n, _ := strconv.Atoi(strings.TrimSpace(string(out))); n > 1 {
-			if !installed {
-				return fmt.Sprintf("UFW not installed — but iptables has %d INPUT rule(s) so the firewall is still active.", n-1)
-			}
-			return fmt.Sprintf("UFW inactive — but iptables has %d INPUT rule(s) so the firewall is still active.", n-1)
+	n, ok := countIPTablesInputRules()
+	if ok && n > 0 {
+		if !installed {
+			return fmt.Sprintf("UFW not installed — but iptables has %d INPUT rule(s) so the firewall IS active. UFW is just an alternative frontend; you don't need it.", n)
 		}
+		return fmt.Sprintf("UFW is inactive — but iptables has %d INPUT rule(s) so the firewall IS active. UFW is just an alternative frontend; you don't need to enable it.", n)
 	}
 	if !installed {
-		return "UFW not installed. Click Install to add it, or rely on iptables (none configured currently)."
+		return "UFW not installed. iptables has no INPUT rules either, so traffic to non-system ports is unrestricted. Add rules under Security → Firewall, or click Install for UFW."
 	}
-	return "UFW inactive. Click Start to enable it, or rely on iptables instead."
+	return "UFW is inactive. iptables has no INPUT rules either, so traffic to non-system ports is unrestricted. Add rules under Security → Firewall, or click Start for UFW."
+}
+
+// synthesizeFirewallStatus returns a synthetic "firewall" row that
+// aggregates iptables + UFW state into a single yes/no signal. It is
+// prepended to the Services list so users see a clear answer to
+// "do I have a firewall?" without having to interpret the UFW row's
+// hint. The row has installable=false and no PID/Memory — it isn't a
+// systemd unit, it's a synthesized status indicator.
+func synthesizeFirewallStatus() map[string]interface{} {
+	ufwActive := false
+	if out, err := exec.Command("systemctl", "is-active", "ufw").Output(); err == nil {
+		if strings.TrimSpace(string(out)) == "active" {
+			ufwActive = true
+		}
+	}
+	ipN, ipOk := countIPTablesInputRules()
+	ipActive := ipOk && ipN > 0
+
+	row := map[string]interface{}{
+		"name":         "firewall",
+		"description":  "Effective firewall (iptables and/or UFW)",
+		"installed":    true,
+		"installable":  false,
+		"synthetic":    true,
+	}
+	switch {
+	case ipActive && ufwActive:
+		row["status"] = "active"
+		row["active"] = true
+		row["hint"] = fmt.Sprintf("Firewall is ACTIVE: iptables has %d INPUT rule(s) and UFW is running.", ipN)
+	case ipActive:
+		row["status"] = "active"
+		row["active"] = true
+		row["hint"] = fmt.Sprintf("Firewall is ACTIVE via iptables (%d INPUT rule(s)). UFW is not in use — that's fine.", ipN)
+	case ufwActive:
+		row["status"] = "active"
+		row["active"] = true
+		row["hint"] = "Firewall is ACTIVE via UFW."
+	default:
+		row["status"] = "inactive"
+		row["active"] = false
+		row["hint"] = "Firewall is INACTIVE: iptables has no INPUT rules and UFW is not running. Add rules under Security → Firewall."
+	}
+	return row
 }
 
 func getServiceDetail(name string) map[string]interface{} {
