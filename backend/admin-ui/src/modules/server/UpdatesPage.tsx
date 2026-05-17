@@ -269,7 +269,12 @@ const UpdatesPage: React.FC = () => {
               icon={<CloudDownloadOutlined />}
               onClick={() => updateMut.mutate()}
               loading={updateMut.isPending}
-              disabled={(!updateAvailable && !isFinal) || isRunning}
+              // Enabled ONLY when there's a newer commit on GitHub AND no
+              // job is currently running. The previous `!isFinal` clause
+              // re-enabled the button immediately after a successful
+              // update, so a second click would re-run the installer
+              // pointlessly (and a third, and so on).
+              disabled={!updateAvailable || isRunning}
             >
               {isRunning ? 'Updating…' : updateAvailable ? 'Update Now' : 'Up to date'}
             </Button>
