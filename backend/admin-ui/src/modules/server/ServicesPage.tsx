@@ -11,6 +11,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getServices, startService, stopService, restartService, installService, getServiceLogs,
+  getFirewallLogs, syncFirewallRules,
 } from '../../core/api'
 
 const { Title, Text, Paragraph } = Typography
@@ -44,12 +45,22 @@ interface Service {
   synthetic?: boolean
 }
 
-const LogsModal: React.FC<{ service: string; open: boolean; onClose: () => void }> = ({ service, open, onClose }) => {
+// LogsModal accepts an optional `fetchLogs` override so the synthetic
+// "firewall" row can pull kernel-ring logs via getFirewallLogs instead
+// of the default `journalctl -u <name>` path that systemd services use.
+const LogsModal: React.FC<{
+  service: string
+  open: boolean
+  onClose: () => void
+  fetchLogs?: (lines: number) => Promise<{ data: any }>
+}> = ({ service, open, onClose, fetchLogs }) => {
   const [lines, setLines] = useState(200)
+
+  const fetcher = fetchLogs ?? ((n: number) => getServiceLogs(service, n))
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['svcLogs', service, lines],
-    queryFn: () => getServiceLogs(service, lines).then(r => r.data),
+    queryFn: () => fetcher(lines).then(r => r.data),
     enabled: open && !!service,
     refetchInterval: open ? 5000 : false,
   })
@@ -165,6 +176,17 @@ const ServicesPage: React.FC = () => {
   // which row is installing when multiple rows are visible. We track the
   // currently-installing service name and gate the spinner on that.
   const [installingName, setInstallingName] = useState<string | null>(null)
+
+  // Firewall sync: re-applies all DB-stored firewall rules to iptables.
+  // Used by the synthetic "firewall" row's Reload button.
+  const syncFwMut = useMutation({
+    mutationFn: () => syncFirewallRules(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      message.success('Firewall rules re-applied to iptables')
+    },
+    onError: (e: any) => message.error(e.response?.data?.error || 'Failed to reload firewall'),
+  })
   const installMut = useMutation({
     mutationFn: (name: string) => {
       setInstallingName(name)
@@ -322,9 +344,32 @@ const ServicesPage: React.FC = () => {
 
                 <Space size={4} wrap>
                   {isSynthetic ? (
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      Aggregated status — manage rules under Security → Firewall
-                    </Text>
+                    <>
+                      <Tooltip title="Re-apply all DB firewall rules to iptables">
+                        <Popconfirm
+                          title="Reload firewall rules?"
+                          description="Flushes and re-applies every rule from the database to iptables."
+                          onConfirm={() => syncFwMut.mutate()}
+                        >
+                          <Button
+                            size="small"
+                            icon={<ReloadOutlined />}
+                            loading={syncFwMut.isPending}
+                          >
+                            Reload Rules
+                          </Button>
+                        </Popconfirm>
+                      </Tooltip>
+                      <Tooltip title="Kernel log lines from iptables / netfilter / ufw">
+                        <Button
+                          size="small"
+                          icon={<FileTextOutlined />}
+                          onClick={() => setLogsService(svc.name)}
+                        >
+                          Logs
+                        </Button>
+                      </Tooltip>
+                    </>
                   ) : notInstalled ? (
                     svc.installable ? (
                       <Popconfirm
@@ -435,6 +480,9 @@ const ServicesPage: React.FC = () => {
           service={logsService}
           open={!!logsService}
           onClose={() => setLogsService(null)}
+          // The synthetic "firewall" row isn't a systemd unit — fetch
+          // kernel ring logs filtered for firewall events instead.
+          fetchLogs={logsService === 'firewall' ? (n => getFirewallLogs(n)) : undefined}
         />
       )}
     </div>

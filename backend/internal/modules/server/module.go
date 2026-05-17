@@ -51,6 +51,11 @@ func (m *ServerModule) RegisterRoutes(r *gin.RouterGroup) {
 		srv.POST("/services/:name/install", core.RequirePermission("server.manage"), m.handler.InstallService)
 		srv.GET("/services/:name/logs", core.RequirePermission("server.view"), m.handler.GetServiceLogs)
 
+		// Synthetic-firewall extras — the "firewall" row in the Services
+		// panel isn't a real systemd unit, so it routes here instead of
+		// to /services/firewall/{logs,restart}.
+		srv.GET("/firewall/logs", core.RequirePermission("server.view"), m.handler.GetFirewallLogs)
+
 		// Logs
 		srv.GET("/logs", core.RequirePermission("server.view"), m.handler.GetLogs)
 

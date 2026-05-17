@@ -107,6 +107,9 @@ export const stopService = (name: string) => api.post(`/server/services/${name}/
 export const restartService = (name: string) => api.post(`/server/services/${name}/restart`)
 export const installService = (name: string) => api.post(`/server/services/${name}/install`)
 export const getServiceLogs = (name: string, lines?: number) => api.get(`/server/services/${name}/logs`, { params: { lines } })
+// Synthetic-firewall row in Services page — kernel logs filtered for
+// iptables/netfilter/ufw/nftables, since "firewall" isn't a systemd unit.
+export const getFirewallLogs = (lines?: number) => api.get('/server/firewall/logs', { params: { lines } })
 export const getServerLogs = (service?: string, lines?: number, search?: string) => api.get('/server/logs', { params: { service, lines, search } })
 export const getServerConfig = () => api.get('/server/config')
 export const updateServerConfig = (data: any) => api.put('/server/config', data)

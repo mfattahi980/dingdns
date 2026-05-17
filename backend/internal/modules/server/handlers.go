@@ -182,6 +182,68 @@ func (h *Handler) GetServiceLogs(c *gin.Context) {
 	})
 }
 
+// GetFirewallLogs returns recent kernel log lines that mention any
+// firewall component (iptables / netfilter / ufw / nftables). It is
+// served by the synthetic "firewall" service row in the Services
+// panel — that row isn't a real systemd unit, so the normal
+// `journalctl -u firewall` path doesn't apply.
+//
+// We use `journalctl -k` (kernel ring buffer) because that's where
+// the actual packet-drop / chain-load events show up; the userland
+// commands (iptables CLI, ufw) log to syslog under their own
+// identifiers, which we'd miss if we filtered by unit name. The
+// dingdns user already has NOPASSWD for journalctl via the existing
+// sudoers entry.
+func (h *Handler) GetFirewallLogs(c *gin.Context) {
+	linesStr := c.DefaultQuery("lines", "200")
+	lines, _ := strconv.Atoi(linesStr)
+	if lines < 10 {
+		lines = 10
+	}
+	if lines > 2000 {
+		lines = 2000
+	}
+
+	// Pull MORE than `lines` from journalctl because we filter
+	// client-side and want to end up with roughly `lines` matches.
+	pull := lines * 5
+	if pull > 10000 {
+		pull = 10000
+	}
+
+	raw, err := runSudo("/usr/bin/journalctl", "-k", "-n", strconv.Itoa(pull),
+		"--no-pager", "--output=short-iso")
+	if err != nil {
+		raw = raw + "\n[Error: " + err.Error() + "]\n[Tip: ensure journalctl sudoers rule is set]"
+	}
+
+	keep := []string{}
+	for _, line := range strings.Split(raw, "\n") {
+		lower := strings.ToLower(line)
+		// netfilter / iptables / ufw / nftables / IN= OUT= are the
+		// typical signatures of firewall events in dmesg.
+		if strings.Contains(lower, "iptables") ||
+			strings.Contains(lower, "netfilter") ||
+			strings.Contains(lower, "nftables") ||
+			strings.Contains(lower, "ufw") ||
+			strings.Contains(lower, "nf_") ||
+			strings.Contains(lower, "ip_tables") ||
+			(strings.Contains(line, "IN=") && strings.Contains(line, "OUT=")) {
+			keep = append(keep, line)
+		}
+	}
+	// Tail to `lines` matches.
+	if len(keep) > lines {
+		keep = keep[len(keep)-lines:]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"output":  strings.Join(keep, "\n"),
+		"lines":   keep,
+		"service": "firewall",
+	})
+}
+
 // InstallService installs a not-yet-installed service via the
 // /usr/local/sbin/dingdns-install-service.sh helper. The helper has a
 // hardcoded package allowlist and is granted NOPASSWD sudo by
