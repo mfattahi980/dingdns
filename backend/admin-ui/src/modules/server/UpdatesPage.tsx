@@ -59,12 +59,22 @@ const UpdatesPage: React.FC = () => {
   const [jobId, setJobId] = useState<string | null>(null)
   const [job, setJob] = useState<JobSnapshot | null>(null)
   const [logBuffer, setLogBuffer] = useState('')
-  const [pollOffset, setPollOffset] = useState(0)
   const [pollError, setPollError] = useState<string | null>(null)
   const [restartInProgress, setRestartInProgress] = useState(false)
   const [showFinishedModal, setShowFinishedModal] = useState(false)
   const logEndRef = useRef<HTMLDivElement | null>(null)
   const queryClient = useQueryClient()
+
+  // We mirror the offset into a ref so the polling loop (whose tick()
+  // closure is captured at jobId-change time) can always read the
+  // freshest value. Without this, `tick` keeps re-using the offset from
+  // its initial closure (0), so every poll re-downloads the entire log
+  // and appends to logBuffer — which is why a stuck job balloons the
+  // log buffer linearly (1KB log × N polls = N×1KB shown to the user).
+  const pollOffsetRef = useRef(0)
+  // Same trick for jobId so we can guard against polling a job that's
+  // been swapped out from under us.
+  const currentJobIdRef = useRef<string | null>(null)
 
   // ── Version info (independent of any running job) ──────────────────────
   const {
@@ -86,17 +96,28 @@ const UpdatesPage: React.FC = () => {
     if (!jobId) return
     let cancelled = false
     let consecutiveErrors = 0
+    // Reset the offset whenever a new job starts. Without this, jumping
+    // from one job_id to another would keep the previous job's tail
+    // cursor.
+    pollOffsetRef.current = 0
+    currentJobIdRef.current = jobId
 
     const tick = async () => {
+      // Guard against a tick scheduled before the user/poll handler
+      // swapped jobId out from under us.
+      if (cancelled || currentJobIdRef.current !== jobId) return
       try {
-        const res = await getUpdateJob(jobId, pollOffset)
+        // Read offset from the ref so each tick uses the latest value,
+        // not the stale closure value from the first render.
+        const res = await getUpdateJob(jobId, pollOffsetRef.current)
         if (cancelled) return
         const data = res.data as JobSnapshot
         setJob(data)
         if (data.log) {
           setLogBuffer(prev => prev + data.log)
         }
-        setPollOffset(data.next_offset)
+        // Advance the cursor for the next tick.
+        pollOffsetRef.current = data.next_offset
         consecutiveErrors = 0
         setPollError(null)
         setRestartInProgress(false)
@@ -127,8 +148,7 @@ const UpdatesPage: React.FC = () => {
     }
     tick()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId])
+  }, [jobId, queryClient])
 
   // Auto-scroll log to bottom
   useEffect(() => {
@@ -145,7 +165,7 @@ const UpdatesPage: React.FC = () => {
       setJobId(id)
       setJob(null)
       setLogBuffer('')
-      setPollOffset(0)
+      pollOffsetRef.current = 0
       setPollError(null)
       setShowFinishedModal(false)
       setRestartInProgress(false)
@@ -159,7 +179,7 @@ const UpdatesPage: React.FC = () => {
         setJobId(data.job_id)
         setJob(null)
         setLogBuffer('')
-        setPollOffset(0)
+        pollOffsetRef.current = 0
         message.warning('An update was already running — attaching to it.', 4)
         return
       }
