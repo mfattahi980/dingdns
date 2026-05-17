@@ -9,7 +9,7 @@ import {
   SendOutlined, HistoryOutlined, BellOutlined, LockOutlined,
   SearchOutlined, SafetyCertificateOutlined, DatabaseOutlined,
   ReloadOutlined, ApiOutlined, LinkOutlined, InfoCircleOutlined,
-  FireOutlined,
+  FireOutlined, WarningOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -49,6 +49,7 @@ const iconMap: Record<string, React.ReactNode> = {
   LinkOutlined: <LinkOutlined />,
   InfoCircleOutlined: <InfoCircleOutlined />,
   FireOutlined: <FireOutlined />,
+  WarningOutlined: <WarningOutlined />,
 }
 
 const AdminLayout: React.FC = () => {
