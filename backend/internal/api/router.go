@@ -56,7 +56,7 @@ func SetupRouter() http.Handler {
 
 	// ============ Public endpoints (no auth) ============
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "dingdns", "version": "2.0"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "dingdns", "version": "2.1.0"})
 	})
 
 	// DDNS update endpoints (token-based auth)

@@ -34,7 +34,7 @@ import (
 	modSettings "github.com/dingdns/dingdns/internal/modules/settings"
 )
 
-var version = "2.0.0"
+var version = "2.1.0"
 
 func main() {
 	configPath := flag.String("config", "/opt/dingdns/config.json", "Path to config file")
